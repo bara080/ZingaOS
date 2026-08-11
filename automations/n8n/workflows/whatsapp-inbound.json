@@ -1,0 +1,45 @@
+{
+  "name": "whatsapp-inbound",
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveDataErrorExecution": "all" },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zinga/whatsapp",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Webhook · WhatsApp inbound",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [ 240, 300 ]
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/bara080/bara/zinga-os && claude -p \"A provider replied on WhatsApp. Payload: {{JSON.stringify($json.body)}}. Use crm-agent to match them in data/providers.csv, log the reply in data/outreach.csv (channel=whatsapp), advance stage prospect->replied if it's a real reply, and drop anything needing a human into inbox/. Draft any response — do NOT auto-send.\" --allowedTools \"Read,Write,Edit,Bash\" --permission-mode acceptEdits --output-format json --max-turns 20 --max-budget-usd 3.00 >> \"runs/$(date +%F)-whatsapp.json\""
+      },
+      "id": "exec-triage",
+      "name": "Execute crm-agent triage",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [ 520, 300 ]
+    },
+    {
+      "parameters": {
+        "text": "=WhatsApp reply triaged. turns={{$json[\"num_turns\"]}}. Reply logged, stage updated if warranted. Any response is a DRAFT — approve before sending (24h window applies)."
+      },
+      "id": "notify-slack",
+      "name": "Log + notify Bara",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [ 800, 300 ],
+      "credentials": { "slackApi": { "name": "Zinga Slack" } }
+    }
+  ],
+  "connections": {
+    "Webhook · WhatsApp inbound": { "main": [ [ { "node": "Execute crm-agent triage", "type": "main", "index": 0 } ] ] },
+    "Execute crm-agent triage": { "main": [ [ { "node": "Log + notify Bara", "type": "main", "index": 0 } ] ] }
+  }
+}

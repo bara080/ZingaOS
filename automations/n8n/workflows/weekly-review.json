@@ -1,0 +1,42 @@
+{
+  "name": "weekly-review",
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveDataErrorExecution": "all" },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "cronExpression", "expression": "0 17 * * 5" } ] }
+      },
+      "id": "trigger-cron",
+      "name": "Fri 17:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [ 240, 300 ]
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/bara080/bara/zinga-os && claude -p \"/weekly-review\" --allowedTools \"Read,Grep,Glob,Write\" --permission-mode acceptEdits --output-format json --max-turns 20 --max-budget-usd 4.00 >> \"runs/$(date +%F)-weekly-review.json\""
+      },
+      "id": "exec-review",
+      "name": "Execute /weekly-review",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [ 520, 300 ]
+    },
+    {
+      "parameters": {
+        "text": "=Weekly review ready. turns={{$json[\"num_turns\"]}}. The three numbers + a ranked Monday list are in runs/. If a number is flat two weeks running, the strategy is wrong, not the effort."
+      },
+      "id": "notify-slack",
+      "name": "Log + notify Bara",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [ 800, 300 ],
+      "credentials": { "slackApi": { "name": "Zinga Slack" } }
+    }
+  ],
+  "connections": {
+    "Fri 17:00": { "main": [ [ { "node": "Execute /weekly-review", "type": "main", "index": 0 } ] ] },
+    "Execute /weekly-review": { "main": [ [ { "node": "Log + notify Bara", "type": "main", "index": 0 } ] ] }
+  }
+}

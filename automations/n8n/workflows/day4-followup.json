@@ -1,0 +1,42 @@
+{
+  "name": "day4-followup",
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveDataErrorExecution": "all" },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "cronExpression", "expression": "0 9 * * 2-6" } ] }
+      },
+      "id": "trigger-cron",
+      "name": "Tue-Sat 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [ 240, 300 ]
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/bara080/bara/zinga-os && claude -p \"Use crm-agent to find providers in data/providers.csv contacted ~4 days ago (data/outreach.csv) with no reply logged. For each, draft ONE follow-up with /outreach-run (a new reason, not a resend — see the outreach-run hard rules). Draft only, never send. If none are due, say so and write nothing.\" --allowedTools \"Read,Write,Edit,Bash\" --permission-mode acceptEdits --output-format json --max-turns 25 --max-budget-usd 5.00 >> \"runs/$(date +%F)-followup.json\""
+      },
+      "id": "exec-followup",
+      "name": "Execute day-4 follow-up (DRAFTS ONLY)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [ 520, 300 ]
+    },
+    {
+      "parameters": {
+        "text": "=day4-followup done. turns={{$json[\"num_turns\"]}}. Follow-up drafts staged in runs/, NOT sent. No re-contact without a new reason. Review + approve before --send."
+      },
+      "id": "notify-slack",
+      "name": "Log + notify Bara",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [ 800, 300 ],
+      "credentials": { "slackApi": { "name": "Zinga Slack" } }
+    }
+  ],
+  "connections": {
+    "Tue-Sat 09:00": { "main": [ [ { "node": "Execute day-4 follow-up (DRAFTS ONLY)", "type": "main", "index": 0 } ] ] },
+    "Execute day-4 follow-up (DRAFTS ONLY)": { "main": [ [ { "node": "Log + notify Bara", "type": "main", "index": 0 } ] ] }
+  }
+}

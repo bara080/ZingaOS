@@ -1,0 +1,45 @@
+{
+  "name": "provider-signup",
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveDataErrorExecution": "all" },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zinga/provider-signup",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Webhook · zingaapp.com signup",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [ 240, 300 ]
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/bara080/bara/zinga-os && claude -p \"A provider signed up on zingaapp.com. Payload: {{JSON.stringify($json.body)}}. Use crm-agent to reconcile them into data/providers.csv (advance to stage 'signed' only if the payload proves a real listing), create their brain/people page, and log to runs/.\" --allowedTools \"Read,Write,Edit,Bash\" --permission-mode acceptEdits --output-format json --max-turns 20 --max-budget-usd 3.00 >> \"runs/$(date +%F)-signup.json\""
+      },
+      "id": "exec-crm",
+      "name": "Execute crm-agent reconcile",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [ 520, 300 ]
+    },
+    {
+      "parameters": {
+        "text": "=New provider signup reconciled. turns={{$json[\"num_turns\"]}}. Check data/providers.csv + runs/ before trusting the stage change."
+      },
+      "id": "notify-slack",
+      "name": "Log + notify Bara",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [ 800, 300 ],
+      "credentials": { "slackApi": { "name": "Zinga Slack" } }
+    }
+  ],
+  "connections": {
+    "Webhook · zingaapp.com signup": { "main": [ [ { "node": "Execute crm-agent reconcile", "type": "main", "index": 0 } ] ] },
+    "Execute crm-agent reconcile": { "main": [ [ { "node": "Log + notify Bara", "type": "main", "index": 0 } ] ] }
+  }
+}

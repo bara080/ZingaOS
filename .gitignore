@@ -1,0 +1,28 @@
+.env
+.env.example
+.claude/
+.claude/settings.local.json
+data/**/*.private.*
+runs/*.json
+runs/*.log
+.DS_Store
+__pycache__/
+*.pyc
+
+# --- PII: real provider/customer data. NEVER commit while ZingaOS is public. ---
+data/providers.csv
+data/outreach.csv
+data/testimonials/*
+!data/testimonials/README.md
+runs/**/email/
+runs/**/ig/
+runs/*-outreach/
+runs/*-smoke/
+brain/people/*
+!brain/people/_*.md
+brain/companies/*
+!brain/companies/.gitkeep
+
+# --- Publish code only: ignore every .md except README.md (keeps docs/strategy private) ---
+*.md
+!README.md

@@ -1,0 +1,42 @@
+{
+  "name": "metrics-sync",
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveDataErrorExecution": "all" },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "cronExpression", "expression": "0 22 * * 0" } ] }
+      },
+      "id": "trigger-cron",
+      "name": "Sun 22:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [ 240, 300 ]
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/bara080/bara/zinga-os && claude -p \"Use crm-agent to recompute the real weekly numbers from data/providers.csv and data/outreach.csv (providers contacted, signed, listings complete, bookings requested/completed) and append one honest row to data/metrics/weekly.csv for the week ending $(date +%F). Do not invent a number.\" --allowedTools \"Read,Write,Edit,Bash\" --permission-mode acceptEdits --output-format json --max-turns 15 --max-budget-usd 2.00 >> \"runs/$(date +%F)-metrics.json\""
+      },
+      "id": "exec-metrics",
+      "name": "Execute metrics recompute",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [ 520, 300 ]
+    },
+    {
+      "parameters": {
+        "text": "=Weekly metrics synced to data/metrics/weekly.csv. turns={{$json[\"num_turns\"]}}. If every number is 0, that is the true state — do not dress it up."
+      },
+      "id": "notify-slack",
+      "name": "Log + notify Bara",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [ 800, 300 ],
+      "credentials": { "slackApi": { "name": "Zinga Slack" } }
+    }
+  ],
+  "connections": {
+    "Sun 22:00": { "main": [ [ { "node": "Execute metrics recompute", "type": "main", "index": 0 } ] ] },
+    "Execute metrics recompute": { "main": [ [ { "node": "Log + notify Bara", "type": "main", "index": 0 } ] ] }
+  }
+}

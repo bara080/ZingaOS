@@ -1,0 +1,42 @@
+{
+  "name": "weekly-prospect-pull",
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveDataErrorExecution": "all" },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "cronExpression", "expression": "0 6 * * 1" } ] }
+      },
+      "id": "trigger-cron",
+      "name": "Mon 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [ 240, 300 ]
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/bara080/bara/zinga-os && claude -p \"Use sourcing-agent to pull the next Brooklyn barber/beauty cell via the Apify pipeline (run_actor.py: Google Maps actor + Email Extractor). Apply the ICP filter (rating>=4.0, 5-80 reviews, >=1 channel), dedupe against data/providers.csv with crm-agent, write new rows at stage=prospect, and log counts to runs/. Contact no one.\" --allowedTools \"Read,Write,Edit,Bash\" --permission-mode acceptEdits --output-format json --max-turns 30 --max-budget-usd 6.00 >> \"runs/$(date +%F)-sourcing.json\""
+      },
+      "id": "exec-source",
+      "name": "Execute sourcing-agent (Apify)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [ 520, 300 ]
+    },
+    {
+      "parameters": {
+        "text": "=weekly-prospect-pull done. turns={{$json[\"num_turns\"]}}. New prospects appended to data/providers.csv at stage=prospect. No outreach sent. Guard: num_turns==0 or 'Unknown command' = dead run (see n8n/README.md)."
+      },
+      "id": "notify-slack",
+      "name": "Log + notify Bara",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [ 800, 300 ],
+      "credentials": { "slackApi": { "name": "Zinga Slack" } }
+    }
+  ],
+  "connections": {
+    "Mon 06:00": { "main": [ [ { "node": "Execute sourcing-agent (Apify)", "type": "main", "index": 0 } ] ] },
+    "Execute sourcing-agent (Apify)": { "main": [ [ { "node": "Log + notify Bara", "type": "main", "index": 0 } ] ] }
+  }
+}

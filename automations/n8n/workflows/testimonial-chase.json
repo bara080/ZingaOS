@@ -1,0 +1,55 @@
+{
+  "name": "testimonial-chase",
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveDataErrorExecution": "all" },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zinga/job-completed",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Webhook · job completed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [ 240, 300 ]
+    },
+    {
+      "parameters": { "amount": 48, "unit": "hours" },
+      "id": "wait-48h",
+      "name": "Wait 48h",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [ 520, 300 ],
+      "webhookId": "zinga-testimonial-wait"
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/bara080/bara/zinga-os && claude -p \"/testimonial-collect for the job: {{JSON.stringify($json.body)}}\" --allowedTools \"Read,Write,Edit\" --permission-mode acceptEdits --output-format json --max-turns 15 --max-budget-usd 3.00 >> \"runs/$(date +%F)-testimonial.json\""
+      },
+      "id": "exec-testimonial",
+      "name": "Execute /testimonial-collect (DRAFT ask)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [ 800, 300 ]
+    },
+    {
+      "parameters": {
+        "text": "=Testimonial ask drafted for a completed job. turns={{$json[\"num_turns\"]}}. NOT sent — approve the draft. No quote goes to the site without permission:yes in data/testimonials/."
+      },
+      "id": "notify-slack",
+      "name": "Log + notify Bara",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [ 1080, 300 ],
+      "credentials": { "slackApi": { "name": "Zinga Slack" } }
+    }
+  ],
+  "connections": {
+    "Webhook · job completed": { "main": [ [ { "node": "Wait 48h", "type": "main", "index": 0 } ] ] },
+    "Wait 48h": { "main": [ [ { "node": "Execute /testimonial-collect (DRAFT ask)", "type": "main", "index": 0 } ] ] },
+    "Execute /testimonial-collect (DRAFT ask)": { "main": [ [ { "node": "Log + notify Bara", "type": "main", "index": 0 } ] ] }
+  }
+}
