@@ -72,9 +72,10 @@ as $$
   order by 2 desc;
 $$;
 
--- Lock down: no PUBLIC execute; service_role only.
-revoke all on function public.operator_list_leads(text, text, text, integer) from public;
-revoke all on function public.operator_lead_counts() from public;
+-- Lock down: no PUBLIC/anon/authenticated execute (Supabase grants these via
+-- default privileges, so revoke each explicitly); service_role only.
+revoke all on function public.operator_list_leads(text, text, text, integer) from public, anon, authenticated;
+revoke all on function public.operator_lead_counts() from public, anon, authenticated;
 grant execute on function public.operator_list_leads(text, text, text, integer) to service_role;
 grant execute on function public.operator_lead_counts() to service_role;
 
