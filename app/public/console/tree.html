@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Zinga OS — System Tree</title>
+<style>
+  :root{
+    --bg:#0B0D11; --bg2:#0F1218; --panel:#12151C; --panel2:#171B23;
+    --line:#232833; --line2:#1A1E26;
+    --ink:#E7EBF1; --ink2:#98A1AE; --ink3:#5E6672;
+    --teal:#2FD9C9; --amber:#E6B24C; --blue:#5E9BE8; --slate:#8B96A6;
+    --green:#4FD08A; --red:#E0655A; --orange:#E8925A;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;background:
+      radial-gradient(1100px 600px at 30% 0%, #10151d 0%, var(--bg) 55%);
+    color:var(--ink);font-family:var(--sans);}
+  .os-nav{display:flex;align-items:center;gap:4px;padding:9px 16px;border-bottom:1px solid var(--line);
+    background:rgba(10,12,16,.72);backdrop-filter:blur(8px);position:sticky;top:0;z-index:10;font-family:var(--mono);}
+  .os-nav .brand{font-size:12px;letter-spacing:.14em;color:var(--ink);margin-right:14px;display:flex;align-items:center;gap:7px;}
+  .os-nav .brand .d{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal);}
+  .os-nav a{font-size:11.5px;letter-spacing:.05em;color:var(--ink2);text-decoration:none;padding:6px 11px;border-radius:7px;transition:.12s;}
+  .os-nav a:hover{color:var(--ink);background:var(--panel2);}
+  .os-nav a[aria-current="page"]{color:var(--bg);background:var(--teal);font-weight:600;}
+  .os-nav .sp{flex:1;}
+  .os-nav .env{font-size:10px;color:var(--ink3);letter-spacing:.1em;}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 70px;}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;margin-bottom:6px;}
+  .head h1{font-family:var(--mono);font-size:20px;font-weight:600;letter-spacing:-.01em;margin:0;}
+  .head h1 .sl{color:var(--teal);}
+  .head p{margin:4px 0 0;color:var(--ink2);font-size:13px;max-width:56ch;}
+  .head .roll{font-family:var(--mono);font-size:11px;color:var(--ink3);text-align:right;line-height:1.7;}
+  .head .roll b{color:var(--ink);}
+  .head .roll .r{color:var(--red);}
+
+  .toolbar{display:flex;gap:8px;margin:16px 0 10px;flex-wrap:wrap;align-items:center;}
+  .tb{font-family:var(--mono);font-size:11px;padding:6px 11px;border-radius:7px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink2);cursor:pointer;}
+  .tb:hover{color:var(--ink);border-color:var(--ink3);}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel);}
+  .seg button{all:unset;font-family:var(--mono);font-size:11px;padding:6px 14px;color:var(--ink2);cursor:pointer;display:flex;align-items:center;gap:6px;}
+  .seg button[aria-pressed="true"]{background:var(--teal);color:var(--bg);font-weight:600;}
+  .seg button:not([aria-pressed="true"]):hover{color:var(--ink);}
+  .spacer{flex:1;}
+
+  .cols{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;}
+  .view{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:12px;}
+  .tree{padding:8px 6px;font-family:var(--mono);font-size:12.5px;}
+
+  .row{display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;position:relative;white-space:nowrap;}
+  .row:hover{background:var(--panel2);}
+  .row.sel{background:rgba(47,217,201,.10);box-shadow:inset 0 0 0 1px rgba(47,217,201,.3);}
+  .row .car{width:12px;text-align:center;color:var(--ink3);flex:0 0 auto;transition:transform .12s;font-size:10px;}
+  .row.open .car{transform:rotate(90deg);}
+  .row .ic{width:15px;text-align:center;flex:0 0 auto;}
+  .row .nm{color:var(--ink);}
+  .row .nm .ext{color:var(--ink3);}
+  .row.domain .nm{font-size:13px;font-weight:600;letter-spacing:.02em;}
+  .row .note{color:var(--ink3);font-size:11px;margin-left:6px;overflow:hidden;text-overflow:ellipsis;}
+  .row .badge{margin-left:auto;font-size:9.5px;letter-spacing:.05em;padding:2px 7px;border-radius:20px;flex:0 0 auto;}
+  .b-live{background:rgba(79,208,138,.14);color:var(--green);}
+  .b-empty{background:rgba(224,101,90,.15);color:var(--red);}
+  .b-draft{background:rgba(230,178,76,.15);color:var(--amber);}
+  .b-ext{background:rgba(94,155,232,.14);color:var(--blue);}
+  .b-ro{background:rgba(139,150,166,.14);color:var(--slate);}
+  .b-ok{background:rgba(47,217,201,.13);color:var(--teal);}
+  .children{margin-left:15px;border-left:1px solid var(--line2);padding-left:2px;}
+
+  /* map view */
+  .map{overflow:auto;max-height:74vh;padding:6px;}
+  .map svg{display:block;}
+  .mnode rect{cursor:pointer;transition:.12s;}
+  .mnode text{font-family:var(--mono);pointer-events:none;}
+  .mlink{fill:none;stroke:rgba(120,130,145,.28);stroke-width:1.2;}
+
+  .side{position:sticky;top:66px;display:flex;flex-direction:column;gap:12px;}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;}
+  .card .kind{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);}
+  .card h3{margin:3px 0 2px;font-size:16px;font-family:var(--mono);}
+  .card .path{font-family:var(--mono);font-size:11px;color:var(--teal);word-break:break-all;margin-bottom:8px;}
+  .card p{margin:0;font-size:13px;color:var(--ink2);line-height:1.55;}
+  .card.hint{color:var(--ink3);font-size:12.5px;}
+  .legend2 .row2{display:flex;align-items:center;gap:9px;font-size:12px;padding:3px 0;color:var(--ink);}
+  .legend2 .sw{width:20px;text-align:center;}
+
+  @media (max-width:860px){ .cols{grid-template-columns:1fr;} .side{position:static;} .os-nav .env{display:none;} }
+</style>
+</head>
+<body>
+
+
+<nav class="os-nav">
+  <span class="brand"><span class="d"></span>ZINGA&nbsp;OS</span>
+  <a href="graph.html">Knowledge&nbsp;Graph</a>
+  <a href="#" aria-current="page">System&nbsp;Tree</a>
+    <a href="neural.html">Neural&nbsp;Map</a>
+    <a href="operator.html">Operator</a>
+  <span class="sp"></span>
+  <span class="env">2 repos · encoded-company/</span>
+</nav>
+
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>system<span class="sl">/</span>tree</h1>
+      <p>The whole operation as one filesystem — Zinga OS, the agents, the marketing campaign,
+         the CRM pipeline, and the developer tooling. The folder is the product.</p>
+    </div>
+    <div class="roll" id="rollup"></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="seg" role="tablist">
+      <button id="vList" aria-pressed="true">▤ List</button>
+      <button id="vMap" aria-pressed="false">⌗ Map</button>
+    </div>
+    <button class="tb" id="expandAll">expand all</button>
+    <button class="tb" id="collapseAll">collapse to domains</button>
+    <button class="tb" id="showEmpty">jump to what's empty →</button>
+  </div>
+
+  <div class="cols">
+    <div class="view">
+      <div class="tree" id="treeList"></div>
+      <div class="map" id="treeMap" style="display:none"></div>
+    </div>
+    <div class="side">
+      <div class="card hint" id="detail">Select a node to see what it is and where it lives.</div>
+      <div class="card">
+        <div class="kind">status legend</div>
+        <div class="legend2" style="margin-top:8px">
+          <div class="row2"><span class="sw" style="color:var(--green)">●</span> live — real data flowing</div>
+          <div class="row2"><span class="sw" style="color:var(--red)">●</span> empty — 0 rows / not yet true</div>
+          <div class="row2"><span class="sw" style="color:var(--amber)">●</span> draft — staged, awaiting approval</div>
+          <div class="row2"><span class="sw" style="color:var(--blue)">●</span> external — campaign repo / 3rd-party</div>
+          <div class="row2"><span class="sw" style="color:var(--slate)">●</span> read-only — Bara owns it</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const T = [
+    {n:"zinga-os", ic:"▸", kind:"domain", st:"ok", note:"the operating system", open:true, path:"~/bara/zinga-os", d:"The business OS. context/ is read-only strategy; data/ and runs/ are writable; every send waits for approval.", c:[
+      {n:"CLAUDE.md", ic:"▪", kind:"file", st:"ro", note:"the rules + read order", d:"Operating rules: draft-show-wait, no invented testimonials, context/ read-only."},
+      {n:"context/", ic:"▸", kind:"folder", st:"ro", note:"6 files · read-only", d:"Strategy Bara owns. Mostly still [TODO]; drafts sit in zinga-context-draft/.", c:[
+        {n:"company.md", kind:"file", st:"ro", d:"What Zinga is. Stage/model/categories still TODO."},
+        {n:"goals.md", kind:"file", st:"ro", d:"The three numbers: Supply / Trust / Demand."},
+        {n:"supply.md", kind:"file", st:"ro", d:"Who we recruit. First cell resolved: Brooklyn + barber/beauty."},
+        {n:"demand.md", kind:"file", st:"empty", d:"Customer side. Empty — no demand evidence yet."},
+        {n:"voice.md", kind:"file", st:"ro", d:"Tone. No invented numbers, no startup vocab."},
+        {n:"decisions.md", kind:"file", st:"ro", d:"Append-only decision log."},
+      ]},
+      {n:"brain/", ic:"▸", kind:"folder", st:"live", note:"the second brain", d:"gbrain knowledge base — query, don't bulk-load.", c:[
+        {n:"people/", kind:"data", st:"empty", note:"1 (example only)", d:"Provider knowledge pages. Mostly still to be written."},
+        {n:"companies/", kind:"data", st:"empty", d:"Empty."},
+        {n:"concepts/", kind:"data", st:"live", note:"cold-start, what-works", d:"Playbook notes."},
+      ]},
+      {n:"data/", ic:"▸", kind:"folder", st:"live", note:"3 of 4 stores empty", open:true, d:"The system of record. Only providers.csv has real rows.", c:[
+        {n:"providers.csv", kind:"data", st:"live", note:"498 · 227 ICP", d:"498 Brooklyn salons loaded, stage=prospect. The pipeline."},
+        {n:"outreach.csv", kind:"data", st:"empty", note:"0 sends", d:"0 rows. 47 drafts wait for approval."},
+        {n:"metrics/weekly.csv", kind:"data", st:"empty", note:"0 rows", d:"Fills on first weekly-review."},
+        {n:"testimonials/", kind:"data", st:"empty", note:"0 permissioned", d:"No quote reaches the site without permission:yes here."},
+      ]},
+      {n:"runs/", ic:"▸", kind:"folder", st:"live", note:"append-only logs", d:"Every run that sends/publishes/spends logs here.", c:[
+        {n:"load-brooklyn-prospects.md", kind:"file", st:"live", d:"Loaded 498 prospects."},
+        {n:"os-buildout.md", kind:"file", st:"live", d:"Agents + automations + graph + the key incident."},
+      ]},
+    ]},
+
+    {n:"agents", ic:"▸", kind:"domain", st:"ok", note:"6 AI agents", open:true, path:".claude/agents/", d:"The workforce. Each serves a pillar; each drafts, a human approves.", c:[
+      {n:"supply-scout", kind:"agent", st:"ok", note:"supply", d:"Finds working solo pros, enriches brain/people, preps batches."},
+      {n:"sourcing-agent", kind:"agent", st:"ok", note:"supply · apify", d:"Runs the Apify pipeline. API sourcing, not scraping."},
+      {n:"crm-agent", kind:"agent", st:"ok", note:"crm", d:"Dedupes providers.csv, advances stages from evidence, flags stalled."},
+      {n:"trust-keeper", kind:"agent", st:"ok", note:"trust", d:"Audits every public claim on zingaapp.com against data/."},
+      {n:"marketing-agent", kind:"agent", st:"ok", note:"demand", d:"Drafts social/landing/ad copy in voice. Never posts."},
+      {n:"developer-agent", kind:"agent", st:"ok", note:"automations", d:"Maintains tools/, n8n JSON, this tree, data schemas."},
+    ]},
+
+    {n:"skills", ic:"▸", kind:"domain", st:"ok", note:"4 SOPs", path:".claude/skills/", d:"Repeatable procedures the agents run.", c:[
+      {n:"outreach-run", kind:"skill", st:"draft", note:"47 drafts", d:"Drafts provider outreach from the pipeline. Draft-only."},
+      {n:"testimonial-collect", kind:"skill", st:"empty", d:"Requests/records/verifies real testimonials. 0 on file."},
+      {n:"weekly-review", kind:"skill", st:"ok", d:"Friday pulse on the three numbers with evidence."},
+      {n:"deep-research", kind:"skill", st:"ok", d:"Fan-out web research, adversarial verify, cited report."},
+    ]},
+
+    {n:"automations", ic:"▸", kind:"domain", st:"draft", note:"9 flows · paused", path:"automations/n8n/", d:"n8n + Apify. Three nodes each: trigger → call → log. All active:false until proven by hand.", c:[
+      {n:"weekly-prospect-pull.json", kind:"auto", st:"live", note:"Mon 06:00 · Apify", d:"sourcing-agent pulls the next cell via Apify. Pipeline front-end (works in campaign)."},
+      {n:"nightly-outreach.json", kind:"auto", st:"draft", note:"Mon 08:00", d:"→ /outreach-run. Paused — never run for real."},
+      {n:"day4-followup.json", kind:"auto", st:"draft", note:"Tue–Sat 09:00", d:"crm-agent finds non-responders → follow-up drafts."},
+      {n:"provider-signup.json", kind:"auto", st:"draft", note:"webhook", d:"zingaapp.com signup → crm-agent. No live sender yet."},
+      {n:"testimonial-chase.json", kind:"auto", st:"draft", note:"job +48h", d:"→ /testimonial-collect draft."},
+      {n:"metrics-sync.json", kind:"auto", st:"draft", note:"Sun 22:00", d:"→ recompute weekly.csv."},
+      {n:"weekly-review.json", kind:"auto", st:"draft", note:"Fri 17:00", d:"→ /weekly-review pulse."},
+      {n:"social-post.json", kind:"auto", st:"draft", note:"M/W/F 10:00 · Meta", d:"marketing-agent drafts FB + IG posts from Figma graphics."},
+      {n:"whatsapp-inbound.json", kind:"auto", st:"draft", note:"webhook", d:"WhatsApp reply → crm-agent triage."},
+    ]},
+
+    {n:"marketing / social-campaign", ic:"▸", kind:"domain", st:"ext", note:"external repo", path:"~/bara/zingaSocialMediaCampaign", d:"The May 2026 GTM campaign. Produced the Brooklyn batch. Separate repo.", c:[
+      {n:"for-providers/", ic:"▸", kind:"folder", st:"ext", note:"supply-side", d:"Provider acquisition assets.", c:[
+        {n:"apify/", ic:"▸", kind:"folder", st:"live", note:"the working scraper", d:"Apify actors + Python runners. This is 'the scraper agent'.", c:[
+          {n:"run_actor.py", kind:"tool", st:"live", d:"Manual Apify runner. GMaps + Email Extractor."},
+          {n:"send_via_smartlead.py", kind:"tool", st:"draft", d:"Cold-email sender via Smartlead. Not firing real sends."},
+          {n:"actor-google-maps.md", kind:"file", st:"live", d:"GMaps actor config. Pulled 1,962 rows."},
+          {n:"actor-email-extractor.md", kind:"file", st:"live", d:"Email actor. Enriched 254 sites."},
+        ]},
+        {n:"prospect-batches/", kind:"data", st:"live", note:"498 → providers.csv", d:"The Brooklyn hair-salon batch. Source of the pipeline."},
+        {n:"sequences/", kind:"data", st:"draft", note:"650 staged", d:"Day-0 email + Day-1 IG templates. Staged, not sent."},
+        {n:"acquisition-plan.md", kind:"file", st:"ext", d:"500 providers / 90 days. Forbids scraping — use APIs."},
+      ]},
+      {n:"for-customers/", ic:"▸", kind:"folder", st:"empty", note:"demand-side", d:"Consumer acquisition. Thin — demand is the empty side.", c:[
+        {n:"consumer-plan.md", kind:"file", st:"ext", d:"Demand plan."},
+        {n:"seo-keyword-targets.md", kind:"file", st:"ext", d:"Local SEO targets."},
+        {n:"ad-creative-brief.md", kind:"file", st:"ext", d:"Ad angles."},
+      ]},
+      {n:"Zinga_GTM_Strategy.md", kind:"file", st:"ext", note:"155-item Miro board", d:"The full GTM operating system. 6 pillars, personas, funnels."},
+    ]},
+
+    {n:"crm", ic:"▸", kind:"domain", st:"live", note:"pipeline of record", path:"data/providers.csv + HubSpot", d:"Where supply state is tracked. The three numbers are only as true as this.", c:[
+      {n:"providers.csv", kind:"data", st:"live", note:"498 · stage=prospect", d:"The live pipeline. 227 ICP-pass, 0 signed."},
+      {n:"stages", kind:"data", st:"draft", note:"prospect→signed→listed", d:"Advanced only on evidence by crm-agent."},
+      {n:"HubSpot", kind:"tool", st:"ext", note:"campaign upsert", d:"External CRM the W1 workflow writes to."},
+      {n:"outreach.csv", kind:"data", st:"empty", note:"0 sends", d:"Contact log. Empty until first real send."},
+    ]},
+
+    {n:"developers / tools", ic:"▸", kind:"domain", st:"ok", note:"the machine shop", path:"tools/", d:"Scripts and schemas. Draft-first: nothing sends or posts without an explicit flag.", c:[
+      {n:"outreach_mailer.py", kind:"tool", st:"ok", note:"email · --send", d:"Renders drafts; sends only with --send + approval. Parses all 27 email drafts clean."},
+      {n:"social_publish.py", kind:"tool", st:"ok", note:"FB+IG · --publish", d:"Meta Graph publish. IG needs a public image_url (→ Vercel assets)."},
+      {n:"whatsapp_send.py", kind:"tool", st:"ok", note:"WhatsApp · --send", d:"Cloud API; opt-in + Meta-approved template required."},
+      {n:"pipeline_check.py", kind:"tool", st:"live", note:"5/5 green", d:"Full-pipeline dry-run test. Nothing sends."},
+      {n:"run_actor.py", kind:"tool", st:"live", note:"apify", d:"Manual Apify runner (campaign)."},
+      {n:"Figma", kind:"tool", st:"ext", note:"graphics source", d:"Post graphics via Figma MCP → exported to the Vercel assets/ folder."},
+      {n:".env.example", kind:"file", st:"ok", note:"key names only", d:"Scrubbed. Real values live in .env (gitignored)."},
+      {n:"the-3-pages", kind:"tool", st:"live", note:"visual layer", d:"Console, Knowledge Graph, System Tree."},
+    ]},
+  ];
+
+  const BADGE = {live:["b-live","live"],empty:["b-empty","empty"],draft:["b-draft","draft"],
+    ext:["b-ext","external"],ro:["b-ro","read-only"],ok:["b-ok","active"]};
+  const SCOL = {live:"var(--green)",empty:"var(--red)",draft:"var(--amber)",ext:"var(--blue)",ro:"var(--slate)",ok:"var(--teal)"};
+  const ICON = {domain:"◆",folder:"▸",file:"▪",agent:"◉",skill:"◈",auto:"⚙",tool:"⛭",data:"▤",root:"◆"};
+
+  // ids + shared state
+  let idc=0; const NById={};
+  (function pre(ns){ns.forEach(n=>{n._id=String(++idc);NById[n._id]=n;if(n.c)pre(n.c);});})(T);
+  const ROOT={n:"zinga",kind:"root",st:"ok",c:T,_id:"0",d:"The encoded company — two repos, one system. Click a branch to open it."};
+  NById["0"]=ROOT;
+  let expanded=new Set(["0"]);
+  (function seed(ns){ns.forEach(n=>{if(n.open)expanded.add(n._id);if(n.c)seed(n.c);});})(T);
+  let mode="list", selId=null;
+
+  const listEl=document.getElementById("treeList");
+  const mapEl=document.getElementById("treeMap");
+  const isOpen=n=>expanded.has(n._id);
+  const hasKids=n=>n.c&&n.c.length;
+
+  function toggle(n){ if(!hasKids(n))return; if(expanded.has(n._id))expanded.delete(n._id); else expanded.add(n._id); rerender(); }
+  function showDetail(n){ selId=n._id; const d=document.getElementById("detail"); d.className="card";
+    const b=BADGE[n.st]||BADGE.ok;
+    d.innerHTML=`<div class="kind">${n.kind}</div><h3>${n.n}</h3>`+
+      (n.path?`<div class="path">${n.path}</div>`:``)+
+      `<span class="badge ${b[0]}" style="display:inline-block;margin-bottom:8px">${b[1]}</span>`+
+      `<p>${n.d||n.note||""}</p>`; }
+
+  // ---- list view ----
+  function renderList(){ listEl.innerHTML=""; build(T,listEl);
+    function build(nodes,parent){ nodes.forEach(node=>{ const hc=hasKids(node);
+      const row=document.createElement("div");
+      row.className="row"+(node.kind==="domain"?" domain":"")+(hc&&isOpen(node)?" open":"")+(selId===node._id?" sel":"");
+      const car=hc?`<span class="car">▶</span>`:`<span class="car"></span>`;
+      const ic=node.ic||ICON[node.kind]||"▪";
+      const nm=node.n.includes(".")&&node.kind!=="domain"?node.n.replace(/(\.[a-z]+)$/i,'<span class="ext">$1</span>'):node.n;
+      const b=BADGE[node.st]||BADGE.ok;
+      row.innerHTML=car+`<span class="ic">${ic}</span><span class="nm">${nm}</span>`+
+        (node.note?`<span class="note">${node.note}</span>`:``)+`<span class="badge ${b[0]}">${b[1]}</span>`;
+      row.onclick=e=>{e.stopPropagation(); showDetail(node); if(hc)toggle(node); else renderList();};
+      parent.appendChild(row);
+      if(hc&&isOpen(node)){ const kids=document.createElement("div"); kids.className="children"; parent.appendChild(kids); build(node.c,kids); }
+    }); }
+  }
+
+  // ---- map view ----
+  const SVGNS="http://www.w3.org/2000/svg";
+  function renderMap(){
+    const colW=250, rowH=30, nodeH=24; let yc=0;
+    const nodes=[], links=[]; let maxDepth=0;
+    (function walk(node,depth,parent){
+      node._x=20+depth*colW; maxDepth=Math.max(maxDepth,depth);
+      const kids=(hasKids(node)&&isOpen(node))?node.c:null;
+      if(kids){ kids.forEach(ch=>walk(ch,depth+1,node)); node._y=(kids[0]._y+kids[kids.length-1]._y)/2; }
+      else { node._y=24+yc*rowH; yc++; }
+      nodes.push(node); if(parent)links.push([parent,node]);
+    })(ROOT,0,null);
+    const nodeW=n=>Math.min(232,Math.max(96,(n.n.length*6.7)+ (hasKids(n)?52:40)));
+    const W=40+(maxDepth+1)*colW, H=Math.max(140, 48+yc*rowH);
+    const svg=document.createElementNS(SVGNS,"svg");
+    svg.setAttribute("width",W); svg.setAttribute("height",H); svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+    // links
+    links.forEach(([p,c])=>{ const x1=p._x+nodeW(p), y1=p._y+nodeH/2, x2=c._x, y2=c._y+nodeH/2, mx=(x1+x2)/2;
+      const path=document.createElementNS(SVGNS,"path");
+      path.setAttribute("d",`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+      path.setAttribute("class","mlink"); svg.appendChild(path); });
+    // nodes
+    nodes.forEach(n=>{ const w=nodeW(n), col=SCOL[n.st]||SCOL.ok, sel=selId===n._id;
+      const g=document.createElementNS(SVGNS,"g"); g.setAttribute("class","mnode"); g.setAttribute("data-id",n._id);
+      const rect=document.createElementNS(SVGNS,"rect");
+      rect.setAttribute("x",n._x); rect.setAttribute("y",n._y); rect.setAttribute("width",w); rect.setAttribute("height",nodeH);
+      rect.setAttribute("rx",7);
+      const domain=n.kind==="domain"||n.kind==="root";
+      rect.setAttribute("fill",domain?"#1b2129":"#141821");
+      rect.setAttribute("stroke",sel?col:(domain?"rgba(120,130,145,.5)":"rgba(120,130,145,.22)"));
+      rect.setAttribute("stroke-width",sel?2:1);
+      g.appendChild(rect);
+      const dot=document.createElementNS(SVGNS,"circle");
+      dot.setAttribute("cx",n._x+13); dot.setAttribute("cy",n._y+nodeH/2); dot.setAttribute("r",n.st==="empty"?4:3.4);
+      dot.setAttribute("fill",n.st==="empty"?"none":col);
+      if(n.st==="empty"){dot.setAttribute("stroke",col);dot.setAttribute("stroke-width","1.4");}
+      g.appendChild(dot);
+      const txt=document.createElementNS(SVGNS,"text");
+      txt.setAttribute("x",n._x+24); txt.setAttribute("y",n._y+nodeH/2+3.5);
+      txt.setAttribute("fill",domain?"#E7EBF1":"#AEB7C3");
+      txt.setAttribute("font-size",domain?"12":"11"); txt.setAttribute("font-weight",domain?"600":"400");
+      const maxc=Math.floor((w-30)/6.6); let lab=n.n; if(lab.length>maxc)lab=lab.slice(0,maxc-1)+"…";
+      txt.textContent=lab; g.appendChild(txt);
+      if(hasKids(n)){ const car=document.createElementNS(SVGNS,"text");
+        car.setAttribute("x",n._x+w-13); car.setAttribute("y",n._y+nodeH/2+4); car.setAttribute("fill","#5E6672");
+        car.setAttribute("font-size","10"); car.setAttribute("text-anchor","middle"); car.textContent=isOpen(n)?"−":"+";
+        g.appendChild(car); }
+      svg.appendChild(g);
+    });
+    mapEl.innerHTML=""; mapEl.appendChild(svg);
+  }
+  mapEl.onclick=e=>{ const g=e.target.closest("[data-id]"); if(!g)return; const n=NById[g.dataset.id];
+    showDetail(n); if(hasKids(n))toggle(n); else renderMap(); };
+
+  function rerender(){ if(mode==="list")renderList(); else renderMap(); }
+
+  // ---- rollup ----
+  let counts={agent:0,skill:0,auto:0,tool:0,data:0,empty:0,draft:0};
+  (function walk(ns){ns.forEach(n=>{ if(counts[n.kind]!=null)counts[n.kind]++;
+    if(n.st==="empty")counts.empty++; if(n.st==="draft")counts.draft++; if(n.c)walk(n.c);});})(T);
+  document.getElementById("rollup").innerHTML=
+    `<b>${counts.agent}</b> agents · <b>${counts.skill}</b> skills · <b>${counts.auto}</b> automations · <b>${counts.tool}</b> tools<br>`+
+    `<span class="r">${counts.empty} empty</span> · <b style="color:var(--amber)">${counts.draft} draft</b> · 2 repos`;
+
+  // ---- controls ----
+  const vList=document.getElementById("vList"), vMap=document.getElementById("vMap");
+  function setMode(m){ mode=m; const list=m==="list";
+    vList.setAttribute("aria-pressed",list); vMap.setAttribute("aria-pressed",!list);
+    listEl.style.display=list?"":"none"; mapEl.style.display=list?"none":""; rerender(); }
+  vList.onclick=()=>setMode("list"); vMap.onclick=()=>setMode("map");
+
+  function expandAll(){ (function w(ns){ns.forEach(n=>{if(hasKids(n)){expanded.add(n._id);w(n.c);}});})(T); expanded.add("0"); rerender(); }
+  function collapseDomains(){ expanded=new Set(["0"]); rerender(); }
+  document.getElementById("expandAll").onclick=expandAll;
+  document.getElementById("collapseAll").onclick=collapseDomains;
+  document.getElementById("showEmpty").onclick=()=>{ expandAll();
+    let target=null; (function f(ns){ns.forEach(n=>{ if(!target&&n.st==="empty")target=n; if(n.c)f(n.c);});})(T);
+    if(target){ showDetail(target);
+      if(mode==="list"){ renderList(); const rows=[...listEl.querySelectorAll(".row")];
+        // find row by matching sel
+        const r=listEl.querySelector(".row.sel"); if(r)r.scrollIntoView({behavior:"smooth",block:"center"}); }
+      else { renderMap(); const g=mapEl.querySelector(`[data-id="${target._id}"]`);
+        if(g)g.scrollIntoView({behavior:"smooth",block:"center"}); }
+    }
+  };
+
+  renderList();
+})();
+</script>
+
+</body>
+</html>

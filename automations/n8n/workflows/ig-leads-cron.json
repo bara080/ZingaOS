@@ -1,0 +1,456 @@
+{
+  "name": "ig-leads-cron",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "cron-mon6",
+      "name": "Cron \u00b7 Mon 6am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "searchQuery",
+              "value": "hair stylist nyc",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "searchType",
+              "value": "user",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "resultsLimit",
+              "value": 20,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-targeting",
+      "name": "Set \u00b7 Targeting",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/shu8hvrXbJbY3Eb9W/runs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"search\": \"{{ $json.searchQuery }}\",\n  \"searchType\": \"{{ $json.searchType }}\",\n  \"searchLimit\": 1,\n  \"resultsType\": \"details\",\n  \"resultsLimit\": {{ $json.resultsLimit }}\n}",
+        "options": {}
+      },
+      "id": "apify-start",
+      "name": "Apify \u00b7 Start IG Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        400
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "ngGucTvQ2XZpqbTO",
+          "name": "Apify token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "id": "wait-first",
+      "name": "Wait 60s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        400
+      ],
+      "webhookId": "ig-leads-wait-1"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.apify.com/v2/actor-runs/{{ $json.data.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {}
+      },
+      "id": "apify-poll",
+      "name": "Apify \u00b7 Poll Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        400
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "ngGucTvQ2XZpqbTO",
+          "name": "Apify token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.data.status }}",
+              "rightValue": "SUCCEEDED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-succeeded",
+      "name": "If \u00b7 SUCCEEDED",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1340,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "id": "wait-loop",
+      "name": "Wait 60s (loop)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1340,
+        620
+      ],
+      "webhookId": "ig-leads-wait-2"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.apify.com/v2/datasets/{{ $json.data.defaultDatasetId }}/items?clean=true&format=json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {}
+      },
+      "id": "apify-download",
+      "name": "Apify \u00b7 Download Dataset",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "ngGucTvQ2XZpqbTO",
+          "name": "Apify token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Step 2 of the skill: parse + validate + USA-only filter.\n// Keeps username / instagramUrl / biography; drops no-username and international.\nconst INTL = /(london|uk|united kingdom|toronto|canada|dubai|uae|paris|france|sydney|australia|berlin|germany|mumbai|india|lagos|nigeria|madrid|spain|milan|italy)/i;\nconst out = [];\nfor (const item of $input.all()) {\n  const r = item.json;\n  const username = (r.username || r.ownerUsername || '').toString().trim();\n  if (!username) continue;                       // drop: no username\n  const biography = (r.biography || r.bio || '').toString().trim();\n  if (INTL.test(biography)) continue;             // drop: international\n  const instagramUrl = (r.instagramUrl || r.url || `https://instagram.com/${username}`).toString().trim();\n  out.push({ json: { username, instagramUrl, biography } });\n}\nreturn out;"
+      },
+      "id": "clean-usa",
+      "name": "Clean \u00b7 USA only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 120, messages: [ { role: \"user\", content: \"Write ONE specific, warm cold-DM opener (max 30 words) for the NYC hair stylist @\" + $json.username + \". Their Instagram bio: \" + $json.biography + \". Reference something true from the bio. No fake numbers, no salesy jargon, at most one emoji. Return only the sentence.\" } ] }) }}",
+        "options": {}
+      },
+      "id": "claude-personalize",
+      "name": "Claude \u00b7 Personalize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VZn8IXlVwyy9UPSJ",
+          "name": "Anthropic x-api-key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "username",
+              "value": "={{ $('Clean \u00b7 USA only').item.json.username }}",
+              "type": "string"
+            },
+            {
+              "id": "b2",
+              "name": "instagramUrl",
+              "value": "={{ $('Clean \u00b7 USA only').item.json.instagramUrl }}",
+              "type": "string"
+            },
+            {
+              "id": "b3",
+              "name": "icebreaker",
+              "value": "={{ $json.content[0].text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "build-row",
+      "name": "Build \u00b7 row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "aggregate",
+      "name": "Aggregate \u00b7 Collect",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ig-leads-run",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-run",
+      "name": "Webhook \u00b7 run now",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ],
+      "webhookId": "ig-leads-run"
+    }
+  ],
+  "connections": {
+    "Cron \u00b7 Mon 6am": {
+      "main": [
+        [
+          {
+            "node": "Set \u00b7 Targeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set \u00b7 Targeting": {
+      "main": [
+        [
+          {
+            "node": "Apify \u00b7 Start IG Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify \u00b7 Start IG Run": {
+      "main": [
+        [
+          {
+            "node": "Wait 60s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 60s": {
+      "main": [
+        [
+          {
+            "node": "Apify \u00b7 Poll Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify \u00b7 Poll Status": {
+      "main": [
+        [
+          {
+            "node": "If \u00b7 SUCCEEDED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If \u00b7 SUCCEEDED": {
+      "main": [
+        [
+          {
+            "node": "Apify \u00b7 Download Dataset",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 60s (loop)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 60s (loop)": {
+      "main": [
+        [
+          {
+            "node": "Apify \u00b7 Poll Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify \u00b7 Download Dataset": {
+      "main": [
+        [
+          {
+            "node": "Clean \u00b7 USA only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean \u00b7 USA only": {
+      "main": [
+        [
+          {
+            "node": "Claude \u00b7 Personalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude \u00b7 Personalize": {
+      "main": [
+        [
+          {
+            "node": "Build \u00b7 row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build \u00b7 row": {
+      "main": [
+        [
+          {
+            "node": "Aggregate \u00b7 Collect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook \u00b7 run now": {
+      "main": [
+        [
+          {
+            "node": "Set \u00b7 Targeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

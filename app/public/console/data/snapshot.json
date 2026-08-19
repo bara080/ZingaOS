@@ -1,0 +1,33 @@
+{
+  "updated": "2026-08-19 02:04",
+  "supply": {
+    "sourced": 498,
+    "icp": 227,
+    "contacted": 49,
+    "signed": 0
+  },
+  "trust": {
+    "testimonials": 0
+  },
+  "demand": {
+    "bookings": 0
+  },
+  "funnel": {
+    "scraped": 1962,
+    "open": 498,
+    "icp": 227,
+    "emailed": 50,
+    "replied": 0,
+    "signed": 0
+  },
+  "send": {
+    "sent": 50,
+    "failed": 0
+  },
+  "by_stage": {
+    "contacted": 49,
+    "prospect": 2,
+    "scraped": 440
+  },
+  "note": "PII-free aggregates only. Raw leads stay local (data/zinga.db)."
+}

@@ -15,7 +15,7 @@
     },
     {
       "parameters": {
-        "command": "cd /Users/bara080/bara/zinga-os && claude -p \"Use crm-agent to recompute the real weekly numbers from data/providers.csv and data/outreach.csv (providers contacted, signed, listings complete, bookings requested/completed) and append one honest row to data/metrics/weekly.csv for the week ending $(date +%F). Do not invent a number.\" --allowedTools \"Read,Write,Edit,Bash\" --permission-mode acceptEdits --output-format json --max-turns 15 --max-budget-usd 2.00 >> \"runs/$(date +%F)-metrics.json\""
+        "command": "cd /Users/bara080/bara/zinga-os && claude -p \"Use crm-agent to recompute the real weekly numbers from data/providers.csv and data/outreach.csv (providers contacted, signed, listings complete, bookings requested/completed) and append one honest row to data/metrics/weekly.csv for the week ending $(date +%F). Do not invent a number. The notes field must be aggregate counts only — NEVER include email addresses or personal names.\" --allowedTools \"Read,Write,Edit,Bash\" --permission-mode acceptEdits --output-format json --max-turns 15 --max-budget-usd 2.00 >> \"runs/$(date +%F)-metrics.json\""
       },
       "id": "exec-metrics",
       "name": "Execute metrics recompute",

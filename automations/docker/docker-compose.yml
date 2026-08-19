@@ -1,0 +1,42 @@
+# Zinga OS automation layer — self-hosted n8n on one always-on host.
+# The repo is mounted at /repo; the Execute Command node runs:
+#     cd /repo && claude -p "Run the /ig-lead-scrape skill ..." ...
+# so no SSH / n8n Cloud round-trip is needed.
+#
+#   cd automations/docker && docker compose up -d --build
+#   # then open http://<host>:5678 and import ../n8n/workflows/*.json
+#
+# Point the Execute Command / cwd at /repo (NOT /Users/...) when running here.
+
+services:
+  n8n:
+    build: .
+    container_name: zinga-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # --- n8n ---
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - WEBHOOK_URL=${WEBHOOK_URL:-http://localhost:5678/}
+      - GENERIC_TIMEZONE=America/New_York
+      - N8N_RUNNERS_ENABLED=true
+      # --- secrets the agent needs (set in automations/docker/.env) ---
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - APIFY_TOKEN=${APIFY_TOKEN}
+      - META_ACCESS_TOKEN=${META_ACCESS_TOKEN}
+      - META_IG_USER_ID=${META_IG_USER_ID}
+      - META_GRAPH_VERSION=${META_GRAPH_VERSION:-v21.0}
+    volumes:
+      # n8n's own data (workflows, credentials, encryption key)
+      - n8n_data:/home/node/.n8n
+      # the Zinga OS repo, so claude -p can read/write it in-container
+      - ../../:/repo
+      # persist the Claude auth/token between restarts
+      - claude_home:/home/node/.claude
+
+volumes:
+  n8n_data:
+  claude_home:

@@ -1,5 +1,9 @@
 # brain/
 
+**Start here:** [`projects/status.md`](projects/status.md) — complete, date-stamped
+status of everything (the three numbers, what shipped, what's sent, open loops).
+Update it when a number moves.
+
 The library. One file per person, company, project, or concept.
 
 Not the same thing as `context/`. Context is the handful of pages read before

@@ -2,11 +2,16 @@
 .env.example
 .claude/
 .claude/settings.local.json
+# includes .claude/skills/ig-lead-scrape/ (Apify IG scrape + Meta DM prep) — stays local
 data/**/*.private.*
 runs/*.json
 runs/*.log
 .DS_Store
 __pycache__/
+
+# MCP config + Playwright MCP artifacts (screenshots/snapshots may hold scraped PII) — local only
+.mcp.json
+.playwright-mcp/
 *.pyc
 
 # --- PII: real provider/customer data. NEVER commit while ZingaOS is public. ---
@@ -18,6 +23,8 @@ runs/**/email/
 runs/**/ig/
 runs/*-outreach/
 runs/*-smoke/
+# ig-lead-scrape skill: scraped IG handles/bios are PII — output stays local
+runs/*-ig-leads/
 brain/people/*
 !brain/people/_*.md
 brain/companies/*
@@ -26,3 +33,25 @@ brain/companies/*
 # --- Publish code only: ignore every .md except README.md (keeps docs/strategy private) ---
 *.md
 !README.md
+
+# local venv + any oauth creds
+.venv/
+credentials.json
+token.json
+
+# assets — binaries stay local; assets/README.md catalogs them
+assets/*.pdf
+assets/*.png
+assets/*.jpg
+assets/*.jpeg
+
+# entire assets folder stays local (not published)
+assets/
+assests/
+
+# local SQLite data layer (contains PII)
+data/*.db
+runs/*.err
+
+# metrics history stays local (notes can hold PII); public numbers come from snapshot.json
+data/metrics/*.csv

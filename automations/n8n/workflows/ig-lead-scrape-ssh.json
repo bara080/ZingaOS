@@ -1,0 +1,62 @@
+{
+  "name": "ig-lead-scrape-ssh",
+  "active": false,
+  "settings": { "executionOrder": "v1", "saveDataErrorExecution": "all" },
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Run for a niche + city",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [ 240, 300 ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "query", "value": "hair stylist nyc" },
+            { "name": "searchType", "value": "user" },
+            { "name": "resultsLimit", "value": "20" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-inputs",
+      "name": "Scrape inputs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [ 520, 300 ]
+    },
+    {
+      "parameters": {
+        "authentication": "privateKey",
+        "resource": "command",
+        "command": "=bash -lc 'cd /Users/bara080/bara/zinga-os && claude -p \"Run the /ig-lead-scrape skill for niche+city \\'{{$json[\"query\"]}}\\' with searchType={{$json[\"searchType\"]}} and resultsLimit={{$json[\"resultsLimit\"]}}. Pull via Apify apify/instagram-scraper, parse username/instagramUrl/biography, drop rows with no username and any non-USA bio, write cleaned leads to runs/$(date +%F)-ig-leads/leads.csv and the 3B CRM review table to runs/$(date +%F)-ig-leads/outreach-review.md. Draft/export only — contact no one, send no DMs.\" --allowedTools \"Read,Write,Edit,Bash\" --permission-mode acceptEdits --output-format json --max-turns 30 --max-budget-usd 4.00 >> \"runs/$(date +%F)-ig-leads.json\"'",
+        "cwd": "/Users/bara080/bara/zinga-os"
+      },
+      "id": "ssh-scrape",
+      "name": "SSH → run ig-lead-scrape on host",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [ 800, 300 ],
+      "credentials": { "sshPrivateKey": { "name": "Zinga host SSH" } }
+    },
+    {
+      "parameters": {
+        "text": "=ig-lead-scrape-ssh done. Leads staged in runs/<date>-ig-leads/outreach-review.md for review. No DMs sent — cold leads need manual, compliant contact (Meta API can't cold-DM a username). Guard: if stdout is empty or contains 'Unknown command' the run is dead (see n8n/README.md)."
+      },
+      "id": "notify-slack",
+      "name": "Log + notify Bara",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [ 1080, 300 ],
+      "credentials": { "slackApi": { "name": "Zinga Slack" } }
+    }
+  ],
+  "connections": {
+    "Run for a niche + city": { "main": [ [ { "node": "Scrape inputs", "type": "main", "index": 0 } ] ] },
+    "Scrape inputs": { "main": [ [ { "node": "SSH → run ig-lead-scrape on host", "type": "main", "index": 0 } ] ] },
+    "SSH → run ig-lead-scrape on host": { "main": [ [ { "node": "Log + notify Bara", "type": "main", "index": 0 } ] ] }
+  }
+}
