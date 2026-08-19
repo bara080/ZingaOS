@@ -13,7 +13,13 @@ import csv, json, sys, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "web" / "data" / "snapshot.json"
+# Write to both the legacy static site (web/) and the auth-gated app console
+# (app/public/console/) so whichever is deployed shows fresh numbers.
+OUTS = [
+    ROOT / "web" / "data" / "snapshot.json",
+    ROOT / "app" / "public" / "console" / "data" / "snapshot.json",
+]
+OUT = OUTS[0]  # back-compat for any importer referencing OUT
 sys.path.insert(0, str(ROOT / "tools"))
 try:
     import db as dbmod
@@ -60,9 +66,11 @@ def build():
 
 def main():
     snap = build()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(snap, indent=2))
-    print(f"wrote {OUT}")
+    payload = json.dumps(snap, indent=2)
+    for out in OUTS:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(payload)
+        print(f"wrote {out}")
     print(f"  supply {snap['supply']} · send {snap['send']} · by_stage {snap.get('by_stage')}")
 
 if __name__ == "__main__":
