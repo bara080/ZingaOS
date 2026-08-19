@@ -46,7 +46,9 @@ package-lock.json
 # claude
 CLAUDE.md
 implementation.md
-docs/
+# anchor to the app root so it ignores app/docs/ only — NOT src/components/docs/
+# (those components are imported by the api-doc pages and must be in git for builds).
+/docs/
 
 # brainstorm sessions
 .superpowers/
