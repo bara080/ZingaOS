@@ -27,9 +27,12 @@ export function oauthConfig() {
   // (App dashboard → Instagram → API setup with Instagram login). These are
   // distinct from the Facebook App ID / META_APP_SECRET; fall back to the FB
   // secret only if the IG-specific one is not set.
-  const appId = process.env.META_IG_APP_ID ?? '';
-  const appSecret = process.env.META_IG_APP_SECRET ?? process.env.META_APP_SECRET ?? '';
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
+  // .trim() every value — env vars pasted into dashboards often carry stray
+  // leading/trailing whitespace, which silently corrupts the client_id /
+  // redirect_uri and makes Instagram reject the authorize request.
+  const appId = (process.env.META_IG_APP_ID ?? '').trim();
+  const appSecret = (process.env.META_IG_APP_SECRET ?? process.env.META_APP_SECRET ?? '').trim();
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').trim().replace(/\/$/, '');
   const redirectUri = `${appUrl}/api/meta/oauth/callback`;
   return { appId, appSecret, appUrl, redirectUri };
 }
