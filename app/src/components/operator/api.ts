@@ -85,6 +85,8 @@ export type SendBatchResponse = {
 export type IgConversation = { igsid: string; username: string; snippet: string };
 export type IgConversationsResponse = { conversations: IgConversation[] };
 export type IgSendResponse = { ok: boolean; messageId: string };
+export type IgProfile = { userId: string; username: string };
+export type IgProfileResponse = { connected: boolean; profile: IgProfile | null };
 
 // ── Callers ─────────────────────────────────────────────────────────────────
 export const operatorApi = {
@@ -108,4 +110,5 @@ export const operatorApi = {
   igConversations: () => req<IgConversationsResponse>('/api/operator/ig/conversations'),
   igSend: (body: { igsid: string; text: string }) =>
     post<IgSendResponse>('/api/operator/ig/send', body),
+  igProfile: () => req<IgProfileResponse>('/api/operator/ig/profile'),
 };

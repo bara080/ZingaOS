@@ -4,19 +4,43 @@
 // a picked conversation via the existing /api/operator/ig/* routes. If the API
 // returns not-authorized (Meta approval pending), a clear banner is shown instead
 // of a dead form.
-import { useState } from 'react';
-import { useIgConversations, useIgSend } from './hooks';
+import { useEffect, useState } from 'react';
+import { useIgConversations, useIgProfile, useIgSend } from './hooks';
 import { Card, ConfirmModal, Eyebrow } from './ui';
 import { C } from './theme';
 
 export function InstagramPanel({ active }: { active: boolean }) {
   const convos = useIgConversations(active);
+  const profile = useIgProfile(active);
   const send = useIgSend();
   const [picked, setPicked] = useState<{ igsid: string; label: string } | null>(null);
   const [text, setText] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [oauthMsg, setOauthMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
+  // Read the ?ig=connected|error result the OAuth callback redirected back with,
+  // surface it, then strip it from the URL so a refresh doesn't re-show it.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search);
+    const ig = q.get('ig');
+    if (!ig) return;
+    if (ig === 'connected') {
+      setOauthMsg({ kind: 'ok', text: `Connected @${q.get('user') || 'account'} ✓` });
+      profile.refetch();
+    } else if (ig === 'error') {
+      setOauthMsg({ kind: 'err', text: q.get('msg') || 'connection failed' });
+    }
+    q.delete('ig');
+    q.delete('user');
+    q.delete('msg');
+    const qs = q.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const connected = profile.data?.connected ? profile.data.profile : null;
   const notAuthorized = convos.isError;
   const list = convos.data?.conversations ?? [];
 
@@ -38,6 +62,51 @@ export function InstagramPanel({ active }: { active: boolean }) {
 
   return (
     <div style={{ width: '100%' }}>
+      <Eyebrow style={{ marginTop: 4 }}>Instagram · account connection</Eyebrow>
+
+      {/* Business Login for Instagram — connect an IG professional account. This
+          is the flow a Meta App reviewer follows; the connected username/id
+          below is the instagram_business_basic data the screencast must show. */}
+      <Card style={{ marginBottom: 16 }}>
+        {connected ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <div style={{ fontFamily: C.mono, fontSize: 13, color: C.teal, fontWeight: 600 }}>
+                @{connected.username}
+              </div>
+              <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.ink3, marginTop: 3 }}>
+                IG user id {connected.userId} · connected
+              </div>
+            </div>
+            <a href="/api/meta/oauth/start" style={connectBtnStyle(false)}>
+              Reconnect
+            </a>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ fontFamily: C.mono, fontSize: 11.5, color: C.ink2, lineHeight: 1.6 }}>
+              No Instagram account connected. Connect an Instagram professional
+              account to read its profile and manage messages.
+            </div>
+            <a href="/api/meta/oauth/start" style={connectBtnStyle(true)}>
+              Connect Instagram
+            </a>
+          </div>
+        )}
+        {oauthMsg && (
+          <div
+            style={{
+              marginTop: 12,
+              fontFamily: C.mono,
+              fontSize: 11.5,
+              color: oauthMsg.kind === 'ok' ? C.green : C.red,
+            }}
+          >
+            {oauthMsg.text}
+          </div>
+        )}
+      </Card>
+
       <Eyebrow style={{ marginTop: 4 }}>Instagram · direct messages</Eyebrow>
 
       {notAuthorized ? (
@@ -179,6 +248,21 @@ const labelStyle: React.CSSProperties = {
   display: 'block',
   marginBottom: 6,
 };
+function connectBtnStyle(primary: boolean): React.CSSProperties {
+  return {
+    fontFamily: C.mono,
+    fontSize: 12,
+    fontWeight: 600,
+    padding: '9px 16px',
+    borderRadius: 9,
+    whiteSpace: 'nowrap',
+    textDecoration: 'none',
+    border: `1px solid ${primary ? C.teal : C.line}`,
+    background: primary ? 'rgba(47,217,201,0.10)' : C.panel2,
+    color: primary ? C.teal : C.ink2,
+    cursor: 'pointer',
+  };
+}
 function rowStyle(on: boolean): React.CSSProperties {
   return {
     textAlign: 'left',

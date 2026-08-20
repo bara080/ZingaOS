@@ -18,6 +18,7 @@ export const operatorKeys = {
   campaign: (src: string) => ['operator', 'campaign', src] as const,
   logs: ['operator', 'logs'] as const,
   igConversations: ['operator', 'ig', 'conversations'] as const,
+  igProfile: ['operator', 'ig', 'profile'] as const,
   scrapeStatus: (runId: string | null) => ['operator', 'scrape', 'status', runId] as const,
   scrapeResults: (dataset: string | null) => ['operator', 'scrape', 'results', dataset] as const,
 };
@@ -112,6 +113,16 @@ export function useIgConversations(enabled: boolean) {
     enabled,
     retry: false,
     refetchInterval: enabled ? 20_000 : false,
+  });
+}
+
+export function useIgProfile(enabled: boolean) {
+  return useQuery({
+    queryKey: operatorKeys.igProfile,
+    queryFn: operatorApi.igProfile,
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? 30_000 : false,
   });
 }
 
