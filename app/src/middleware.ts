@@ -10,6 +10,8 @@ export const config = {
   matcher: [
     // The Zinga OS console — the default authenticated destination.
     '/console/:path*',
+    // The React Operator route (rebuild of console/operator.html).
+    '/operator/:path*',
     // Keep team / user management reachable.
     '/admin-users/:path*',
     '/settings/:path*',
