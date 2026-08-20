@@ -28,13 +28,6 @@ export async function GET(req: Request) {
   const challenge = searchParams.get('hub.challenge');
   const expected = (process.env.META_WEBHOOK_VERIFY_TOKEN ?? '').trim();
 
-  // Safe diagnostic: reveals ONLY whether the env var is configured and its
-  // length (never the value). Lets us confirm the deploy picked up the var
-  // without guessing. Remove once the webhook is verified.
-  if (searchParams.get('debug') === '1') {
-    return NextResponse.json({ configured: expected.length > 0, len: expected.length });
-  }
-
   if (mode === 'subscribe' && expected && token === expected) {
     // Echo the challenge back as plain text with a 200.
     return new NextResponse(challenge ?? '', {
