@@ -19,6 +19,8 @@ export const operatorKeys = {
   logs: ['operator', 'logs'] as const,
   igConversations: ['operator', 'ig', 'conversations'] as const,
   igProfile: ['operator', 'ig', 'profile'] as const,
+  igThreads: ['operator', 'ig', 'threads'] as const,
+  igThread: (igsid: string | null) => ['operator', 'ig', 'thread', igsid] as const,
   scrapeStatus: (runId: string | null) => ['operator', 'scrape', 'status', runId] as const,
   scrapeResults: (dataset: string | null) => ['operator', 'scrape', 'results', dataset] as const,
 };
@@ -130,6 +132,39 @@ export function useIgSend() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: { igsid: string; text: string }) => operatorApi.igSend(vars),
-    onSuccess: () => qc.invalidateQueries({ queryKey: operatorKeys.logs }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: operatorKeys.logs });
+      // The outbound row was persisted — refresh the stored thread + thread list.
+      qc.invalidateQueries({ queryKey: operatorKeys.igThreads });
+      qc.invalidateQueries({ queryKey: operatorKeys.igThread(vars.igsid) });
+    },
+  });
+}
+
+// ── Social → Instagram · stored conversations (ops.ig_messages) ─────────────
+export function useIgThreads(enabled: boolean) {
+  return useQuery({
+    queryKey: operatorKeys.igThreads,
+    queryFn: operatorApi.igThreads,
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? 20_000 : false,
+  });
+}
+
+export function useIgThread(igsid: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: operatorKeys.igThread(igsid),
+    queryFn: () => operatorApi.igThread(igsid as string),
+    enabled: enabled && !!igsid,
+    retry: false,
+    refetchInterval: enabled && igsid ? 15_000 : false,
+  });
+}
+
+// Draft-only: generates a Zinga-voice reply the operator must review before send.
+export function useIgDraft() {
+  return useMutation({
+    mutationFn: (vars: { igsid: string }) => operatorApi.igDraft(vars),
   });
 }

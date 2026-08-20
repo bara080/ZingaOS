@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { useIgConversations, useIgProfile, useIgSend } from './hooks';
 import { Card, ConfirmModal, Eyebrow } from './ui';
 import { C } from './theme';
+import { ConversationPanel } from './ConversationPanel';
 
 export function InstagramPanel({ active }: { active: boolean }) {
   const convos = useIgConversations(active);
@@ -226,6 +227,9 @@ export function InstagramPanel({ active }: { active: boolean }) {
           </div>
         </Card>
       )}
+
+      {/* Stored conversation history + Zinga-voice reply drafting (webhook-fed). */}
+      <ConversationPanel active={active} />
 
       <ConfirmModal
         open={confirmOpen}

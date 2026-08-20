@@ -40,8 +40,17 @@ export async function POST(req: Request) {
           ? `igsid=${igsid} FAILED: ${result.error}`
           : `igsid=${igsid} ok message_id=${result.messageId}`,
     });
+    // On a successful send, persist the outbound message so it shows up in the
+    // conversation thread alongside inbound DMs. Never blocks/affects the send.
+    if (!('error' in result)) {
+      await admin.rpc('operator_ig_store_outbound', {
+        p_igsid: igsid,
+        p_text: text,
+        p_mid: result.messageId || null,
+      });
+    }
   } catch {
-    /* ignore audit failure */
+    /* ignore audit / persistence failure — the DM was already sent */
   }
 
   if ('error' in result) return NextResponse.json({ error: result.error }, { status: 502 });

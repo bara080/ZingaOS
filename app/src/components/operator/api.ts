@@ -88,6 +88,24 @@ export type IgSendResponse = { ok: boolean; messageId: string };
 export type IgProfile = { userId: string; username: string };
 export type IgProfileResponse = { connected: boolean; profile: IgProfile | null };
 
+// Stored conversation history (ops.ig_messages) captured by the Meta webhook.
+export type IgThread = {
+  igsid: string;
+  username: string | null;
+  last_text: string | null;
+  last_at: string;
+  msg_count: number;
+};
+export type IgThreadsResponse = { threads: IgThread[] };
+export type IgMessage = {
+  id: number;
+  direction: 'in' | 'out';
+  text: string | null;
+  created_at: string;
+};
+export type IgThreadResponse = { igsid: string; messages: IgMessage[] };
+export type IgDraftResponse = { draft: string; intent: string };
+
 // ── Callers ─────────────────────────────────────────────────────────────────
 export const operatorApi = {
   analytics: () => req<Analytics>('/api/operator/analytics'),
@@ -111,4 +129,9 @@ export const operatorApi = {
   igSend: (body: { igsid: string; text: string }) =>
     post<IgSendResponse>('/api/operator/ig/send', body),
   igProfile: () => req<IgProfileResponse>('/api/operator/ig/profile'),
+
+  igThreads: () => req<IgThreadsResponse>('/api/operator/ig/threads'),
+  igThread: (igsid: string) =>
+    req<IgThreadResponse>(`/api/operator/ig/thread?igsid=${encodeURIComponent(igsid)}`),
+  igDraft: (body: { igsid: string }) => post<IgDraftResponse>('/api/operator/ig/draft', body),
 };
