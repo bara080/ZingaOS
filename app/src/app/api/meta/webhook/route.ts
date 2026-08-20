@@ -22,10 +22,18 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get('hub.mode');
-  const token = searchParams.get('hub.verify_token');
+  // .trim() the incoming token AND the env value — dashboard-pasted env vars
+  // often carry stray whitespace, which silently breaks the equality check.
+  const token = (searchParams.get('hub.verify_token') ?? '').trim();
   const challenge = searchParams.get('hub.challenge');
+  const expected = (process.env.META_WEBHOOK_VERIFY_TOKEN ?? '').trim();
 
-  const expected = process.env.META_WEBHOOK_VERIFY_TOKEN;
+  // Safe diagnostic: reveals ONLY whether the env var is configured and its
+  // length (never the value). Lets us confirm the deploy picked up the var
+  // without guessing. Remove once the webhook is verified.
+  if (searchParams.get('debug') === '1') {
+    return NextResponse.json({ configured: expected.length > 0, len: expected.length });
+  }
 
   if (mode === 'subscribe' && expected && token === expected) {
     // Echo the challenge back as plain text with a 200.
