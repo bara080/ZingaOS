@@ -8,7 +8,7 @@
 // Instagram, then Mark as Sent advances the queue.
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, Copy, Check, SkipForward, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useLeads } from '../hooks';
+import { useLeads, useMarkSent } from '../hooks';
 import { draftDm, leadHandle, leadName, type Lead } from '../api';
 import { C } from '@/components/operator/theme';
 
@@ -55,6 +55,8 @@ export function DmQueueView() {
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
   const [sendMode, setSendMode] = useState<'manual' | 'api' | 'autopilot'>('manual');
+  const [flash, setFlash] = useState<string | null>(null);
+  const mark = useMarkSent();
 
   // Regenerate the draft whenever the selected lead changes.
   useEffect(() => {
@@ -65,11 +67,22 @@ export function DmQueueView() {
   const advance = () => setIdx((i) => Math.min(i + 1, list.length - 1));
 
   const markSent = () => {
-    if (!lead) return;
-    setSentIds((prev) => new Set(prev).add(lead.id));
-    setSentToday((n) => n + 1);
-    // TODO: persist stage=contacted + activity via a CRM write RPC (build-up step).
-    if (autoAdvance) advance();
+    if (!lead || mark.isPending) return;
+    const id = lead.id;
+    setFlash(null);
+    mark.mutate(
+      { leadId: id, platform: 'instagram', sendMode, message },
+      {
+        onSuccess: () => {
+          // Persisted server-side: outreach_messages row + stage → contacted + audit.
+          setSentIds((prev) => new Set(prev).add(id));
+          setSentToday((n) => n + 1);
+          setFlash('Marked sent ✓');
+          if (autoAdvance) advance();
+        },
+        onError: (e) => setFlash(`Failed: ${e instanceof Error ? e.message : 'error'}`),
+      },
+    );
   };
 
   const copyAndOpen = async () => {
@@ -257,10 +270,26 @@ export function DmQueueView() {
                 <button onClick={copyAndOpen} style={{ ...actionBtn(false), flex: 1 }}>
                   {copied ? <Check size={14} /> : <Copy size={14} />} Copy + Open Instagram
                 </button>
-                <button onClick={markSent} style={{ ...actionBtn(true), flex: 1 }}>
-                  <Check size={14} /> Mark as Sent
+                <button
+                  onClick={markSent}
+                  disabled={mark.isPending}
+                  style={{ ...actionBtn(true), flex: 1, cursor: mark.isPending ? 'wait' : 'pointer' }}
+                >
+                  <Check size={14} /> {mark.isPending ? 'Saving…' : 'Mark as Sent'}
                 </button>
               </div>
+              {flash && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontFamily: C.mono,
+                    fontSize: 11,
+                    color: flash.startsWith('Failed') ? C.red : C.green,
+                  }}
+                >
+                  {flash}
+                </div>
+              )}
             </>
           )}
         </div>

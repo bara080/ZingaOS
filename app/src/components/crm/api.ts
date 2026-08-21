@@ -30,8 +30,8 @@ export type LeadsResponse = {
   counts: { total: number; by_stage: Record<string, number> };
 };
 
-async function req<T>(url: string): Promise<T> {
-  const r = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+async function req<T>(url: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...init });
   if (r.status === 401) {
     if (typeof window !== 'undefined') window.location.href = '/login';
     throw new Error('unauthenticated');
@@ -43,6 +43,8 @@ async function req<T>(url: string): Promise<T> {
   return data as T;
 }
 
+export type MarkSentResponse = { ok: boolean; messageId: number };
+
 export const crmApi = {
   leads: (params?: { stage?: string; source?: string; q?: string; limit?: number }) => {
     const sp = new URLSearchParams();
@@ -52,6 +54,12 @@ export const crmApi = {
     sp.set('limit', String(params?.limit ?? 500));
     return req<LeadsResponse>(`/api/operator/leads?${sp.toString()}`);
   },
+  markSent: (body: { leadId: number; platform?: string; sendMode?: string; message?: string }) =>
+    req<MarkSentResponse>('/api/operator/crm/mark-sent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
 };
 
 // ── helpers shared by CRM views ────────────────────────────────────────────
