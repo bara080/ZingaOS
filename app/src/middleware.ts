@@ -12,6 +12,8 @@ export const config = {
     '/console/:path*',
     // The React Operator route (rebuild of console/operator.html).
     '/operator/:path*',
+    // The CRM — outreach-execution surface (leads / DM queue / inbox / campaigns).
+    '/crm/:path*',
     // Keep team / user management reachable.
     '/admin-users/:path*',
     '/settings/:path*',

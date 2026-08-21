@@ -6,13 +6,14 @@
 // the operator uses it as the React header.
 import { C } from './theme';
 
-export type ConsoleDest = 'graph' | 'tree' | 'neural' | 'operator';
+export type ConsoleDest = 'graph' | 'tree' | 'neural' | 'operator' | 'crm';
 
 const LINKS: { key: ConsoleDest; label: string; href: string }[] = [
   { key: 'graph', label: 'Knowledge Graph', href: '/console/graph.html' },
   { key: 'tree', label: 'System Tree', href: '/console/tree.html' },
   { key: 'neural', label: 'Neural Map', href: '/console/neural.html' },
   { key: 'operator', label: 'Operator', href: '/operator' },
+  { key: 'crm', label: 'CRM', href: '/crm' },
 ];
 
 export function TopNav({ current, note }: { current: ConsoleDest; note?: string }) {
