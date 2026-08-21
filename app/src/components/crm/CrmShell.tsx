@@ -11,14 +11,14 @@ import { CrmSidebar } from './CrmSidebar';
 import { CRM_NAV, DEFAULT_VIEW, type CrmView } from './nav';
 import { DmQueueView } from './views/DmQueueView';
 import { LeadsView } from './views/LeadsView';
+import { DashboardView } from './views/DashboardView';
+import { InboxView } from './views/InboxView';
 import { ComingSoon } from './views/ComingSoon';
 
 const ICON = Object.fromEntries(CRM_NAV.map((n) => [n.key, n.icon]));
 const LABEL = Object.fromEntries(CRM_NAV.map((n) => [n.key, n.label]));
 
 const NOTES: Partial<Record<CrmView, string>> = {
-  dashboard: 'Operational cards: Ready to Contact, Sent Today, Replies, Reply Rate, Qualified, Conversions. Built after the queue proves out.',
-  inbox: 'Unified reply inbox over ops.ig_messages + email. AI reply suggestion + human takeover. Build-up step §3.',
   campaigns: 'Campaign builder (Setup → Audience → Message → Delivery → Review) reusing the operator_campaign_* RPCs. §4.',
   agents: 'AI agents (Qualifier, Setter, Follow-up) on the OpenAI Responses API — no LLM key wired yet. §5.',
   automations: 'Visual trigger/action rules (no reply 3d → follow-up, etc.). §6.',
@@ -45,9 +45,11 @@ export function CrmShell() {
       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
         <CrmSidebar active={view} onSelect={setView} />
         <main style={{ flex: 1, minWidth: 0, width: '100%', padding: '18px 24px 48px' }}>
+          {view === 'dashboard' && <DashboardView />}
           {view === 'dm-queue' && <DmQueueView />}
           {view === 'leads' && <LeadsView />}
-          {view !== 'dm-queue' && view !== 'leads' && (
+          {view === 'inbox' && <InboxView />}
+          {view !== 'dashboard' && view !== 'dm-queue' && view !== 'leads' && view !== 'inbox' && (
             <ComingSoon title={LABEL[view]} icon={ICON[view]} note={NOTES[view]} />
           )}
         </main>

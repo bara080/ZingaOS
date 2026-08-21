@@ -45,6 +45,31 @@ async function req<T>(url: string, init?: RequestInit): Promise<T> {
 
 export type MarkSentResponse = { ok: boolean; messageId: number };
 
+export type CrmStats = {
+  ready_to_contact: number;
+  contacted: number;
+  sent_total: number;
+  sent_today: number;
+  inbound_threads: number;
+  qualified: number;
+  won: number;
+};
+export type StatsResponse = { stats: CrmStats | null };
+
+// Inbox reuses the existing IG conversation routes (ops.ig_messages).
+export type IgThread = {
+  igsid: string;
+  username: string | null;
+  last_text: string | null;
+  last_at: string;
+  msg_count: number;
+};
+export type IgThreadsResponse = { threads: IgThread[] };
+export type IgMessage = { id: number; direction: 'in' | 'out'; text: string | null; created_at: string };
+export type IgThreadResponse = { igsid: string; messages: IgMessage[] };
+export type IgDraftResponse = { draft: string; intent: string };
+export type IgSendResponse = { ok: boolean; messageId: string };
+
 export const crmApi = {
   leads: (params?: { stage?: string; source?: string; q?: string; limit?: number }) => {
     const sp = new URLSearchParams();
@@ -56,6 +81,24 @@ export const crmApi = {
   },
   markSent: (body: { leadId: number; platform?: string; sendMode?: string; message?: string }) =>
     req<MarkSentResponse>('/api/operator/crm/mark-sent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  stats: () => req<StatsResponse>('/api/operator/crm/stats'),
+
+  igThreads: () => req<IgThreadsResponse>('/api/operator/ig/threads'),
+  igThread: (igsid: string) =>
+    req<IgThreadResponse>(`/api/operator/ig/thread?igsid=${encodeURIComponent(igsid)}`),
+  igDraft: (igsid: string) =>
+    req<IgDraftResponse>('/api/operator/ig/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ igsid }),
+    }),
+  igSend: (body: { igsid: string; text: string }) =>
+    req<IgSendResponse>('/api/operator/ig/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

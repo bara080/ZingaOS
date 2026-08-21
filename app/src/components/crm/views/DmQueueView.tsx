@@ -8,9 +8,13 @@
 // Instagram, then Mark as Sent advances the queue.
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, Copy, Check, SkipForward, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useLeads, useMarkSent } from '../hooks';
+import { useLeads, useMarkSent, useCrmStats } from '../hooks';
 import { draftDm, leadHandle, leadName, type Lead } from '../api';
 import { C } from '@/components/operator/theme';
+
+// Warming / ban-safety cap on manual IG DMs per day (see docs/outreach-crm-plan.md).
+// Start conservative; raise deliberately as the account warms.
+const DAILY_DM_CAP = 40;
 
 type QueueTab = 'all' | 'new' | 'contacted' | 'followup';
 
@@ -31,11 +35,14 @@ export function DmQueueView() {
     [query.data],
   );
 
+  const statsQ = useCrmStats();
+  const sentToday = statsQ.data?.stats?.sent_today ?? 0; // server truth (persisted)
+  const capReached = sentToday >= DAILY_DM_CAP;
+
   const [tab, setTab] = useState<QueueTab>('all');
   const [search, setSearch] = useState('');
   const [idx, setIdx] = useState(0);
   const [autoAdvance, setAutoAdvance] = useState(true);
-  const [sentToday, setSentToday] = useState(0);
   const [sentIds, setSentIds] = useState<Set<number>>(new Set());
 
   const list = useMemo(() => {
@@ -68,6 +75,10 @@ export function DmQueueView() {
 
   const markSent = () => {
     if (!lead || mark.isPending) return;
+    if (capReached) {
+      setFlash(`Daily cap reached (${DAILY_DM_CAP}) — protect the account, resume tomorrow.`);
+      return;
+    }
     const id = lead.id;
     setFlash(null);
     mark.mutate(
@@ -75,8 +86,8 @@ export function DmQueueView() {
       {
         onSuccess: () => {
           // Persisted server-side: outreach_messages row + stage → contacted + audit.
+          // sent_today refreshes via the stats query invalidation.
           setSentIds((prev) => new Set(prev).add(id));
-          setSentToday((n) => n + 1);
           setFlash('Marked sent ✓');
           if (autoAdvance) advance();
         },
@@ -112,7 +123,10 @@ export function DmQueueView() {
           DM Queue
         </h2>
         <span style={{ fontFamily: C.mono, fontSize: 11.5, color: C.ink3 }}>
-          {list.length} queued · {sentToday} sent this session
+          {list.length} queued ·{' '}
+          <span style={{ color: capReached ? C.amber : C.ink2 }}>
+            {sentToday}/{DAILY_DM_CAP} sent today
+          </span>
         </span>
         <span style={{ flex: 1 }} />
         <label style={{ fontFamily: C.mono, fontSize: 11, color: C.ink2, display: 'flex', gap: 7, alignItems: 'center', cursor: 'pointer' }}>
@@ -272,10 +286,16 @@ export function DmQueueView() {
                 </button>
                 <button
                   onClick={markSent}
-                  disabled={mark.isPending}
-                  style={{ ...actionBtn(true), flex: 1, cursor: mark.isPending ? 'wait' : 'pointer' }}
+                  disabled={mark.isPending || capReached}
+                  title={capReached ? `Daily cap reached (${DAILY_DM_CAP})` : ''}
+                  style={{
+                    ...actionBtn(true),
+                    flex: 1,
+                    opacity: capReached ? 0.5 : 1,
+                    cursor: capReached ? 'not-allowed' : mark.isPending ? 'wait' : 'pointer',
+                  }}
                 >
-                  <Check size={14} /> {mark.isPending ? 'Saving…' : 'Mark as Sent'}
+                  <Check size={14} /> {capReached ? 'Daily cap reached' : mark.isPending ? 'Saving…' : 'Mark as Sent'}
                 </button>
               </div>
               {flash && (

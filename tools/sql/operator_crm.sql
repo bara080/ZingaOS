@@ -63,10 +63,41 @@ begin
 end
 $$;
 
+-- ── CRM dashboard + guardrail stats (single-row aggregate) ──────────────────
+-- Powers the Dashboard cards and the DM Queue daily-limit guardrail.
+create or replace function public.operator_crm_stats()
+returns table (
+  ready_to_contact bigint,
+  contacted        bigint,
+  sent_total       bigint,
+  sent_today       bigint,
+  inbound_threads  bigint,
+  qualified        bigint,
+  won              bigint
+)
+language sql
+stable
+security definer
+set search_path = ops, pg_temp
+as $$
+  select
+    (select count(*) from ops.leads l
+       where l.stage in ('scraped','prospect','new')
+         and (l.email is not null and l.email <> '' or l.instagram is not null and l.instagram <> '')) as ready_to_contact,
+    (select count(*) from ops.leads where stage = 'contacted') as contacted,
+    (select count(*) from ops.outreach_messages) as sent_total,
+    (select count(*) from ops.outreach_messages where sent_at::date = current_date) as sent_today,
+    (select count(distinct igsid) from ops.ig_messages where direction = 'in') as inbound_threads,
+    (select count(*) from ops.leads where stage = 'qualified') as qualified,
+    (select count(*) from ops.leads where stage in ('signed','listed','won')) as won;
+$$;
+
 -- ── lock down: service_role only ────────────────────────────────────────────
 revoke all on function public.operator_crm_mark_sent(bigint, text, text, text, text)
   from public, anon, authenticated;
 grant execute on function public.operator_crm_mark_sent(bigint, text, text, text, text)
   to service_role;
+revoke all on function public.operator_crm_stats() from public, anon, authenticated;
+grant execute on function public.operator_crm_stats() to service_role;
 
 notify pgrst, 'reload schema';
