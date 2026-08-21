@@ -70,6 +70,35 @@ export type IgThreadResponse = { igsid: string; messages: IgMessage[] };
 export type IgDraftResponse = { draft: string; intent: string };
 export type IgSendResponse = { ok: boolean; messageId: string };
 
+export type Campaign = {
+  id: number;
+  name: string;
+  platform: string;
+  goal: string | null;
+  source: string | null;
+  send_mode: string;
+  daily_limit: number;
+  status: string;
+  created_at: string;
+  assigned: number;
+  ready: number;
+  sent: number;
+  replies: number;
+  qualified: number;
+  won: number;
+};
+export type CampaignsResponse = { campaigns: Campaign[] };
+export type Segment = { source: string; n: number; emailable: number };
+export type SegmentsResponse = { segments: Segment[] };
+export type CreateCampaignBody = {
+  name: string;
+  platform?: string;
+  goal?: string;
+  source?: string;
+  sendMode?: string;
+  dailyLimit?: number;
+};
+
 export const crmApi = {
   leads: (params?: { stage?: string; source?: string; q?: string; limit?: number }) => {
     const sp = new URLSearchParams();
@@ -99,6 +128,21 @@ export const crmApi = {
     }),
   igSend: (body: { igsid: string; text: string }) =>
     req<IgSendResponse>('/api/operator/ig/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  campaigns: () => req<CampaignsResponse>('/api/operator/crm/campaigns'),
+  segments: () => req<SegmentsResponse>('/api/operator/crm/segments'),
+  campaignCreate: (body: CreateCampaignBody) =>
+    req<{ ok: boolean; id: number }>('/api/operator/crm/campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  campaignSetStatus: (body: { id: number; status: 'active' | 'paused' }) =>
+    req<{ ok: boolean; status: string }>('/api/operator/crm/campaigns/status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

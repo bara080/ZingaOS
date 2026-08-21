@@ -11,6 +11,8 @@ export const crmKeys = {
   stats: ['crm', 'stats'] as const,
   igThreads: ['crm', 'ig', 'threads'] as const,
   igThread: (igsid: string | null) => ['crm', 'ig', 'thread', igsid] as const,
+  campaigns: ['crm', 'campaigns'] as const,
+  segments: ['crm', 'segments'] as const,
 };
 
 export function useLeads(params?: { stage?: string; source?: string; q?: string }) {
@@ -61,6 +63,35 @@ export function useIgSend() {
       qc.invalidateQueries({ queryKey: crmKeys.igThreads });
       qc.invalidateQueries({ queryKey: crmKeys.igThread(vars.igsid) });
     },
+  });
+}
+
+// ── Campaigns ───────────────────────────────────────────────────────────────
+export function useCampaigns() {
+  return useQuery({
+    queryKey: crmKeys.campaigns,
+    queryFn: () => crmApi.campaigns(),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useSegments() {
+  return useQuery({ queryKey: crmKeys.segments, queryFn: () => crmApi.segments() });
+}
+
+export function useCampaignCreate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof crmApi.campaignCreate>[0]) => crmApi.campaignCreate(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.campaigns }),
+  });
+}
+
+export function useCampaignSetStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: number; status: 'active' | 'paused' }) => crmApi.campaignSetStatus(vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.campaigns }),
   });
 }
 

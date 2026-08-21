@@ -13,13 +13,13 @@ import { DmQueueView } from './views/DmQueueView';
 import { LeadsView } from './views/LeadsView';
 import { DashboardView } from './views/DashboardView';
 import { InboxView } from './views/InboxView';
+import { CampaignsView } from './views/CampaignsView';
 import { ComingSoon } from './views/ComingSoon';
 
 const ICON = Object.fromEntries(CRM_NAV.map((n) => [n.key, n.icon]));
 const LABEL = Object.fromEntries(CRM_NAV.map((n) => [n.key, n.label]));
 
 const NOTES: Partial<Record<CrmView, string>> = {
-  campaigns: 'Campaign builder (Setup → Audience → Message → Delivery → Review) reusing the operator_campaign_* RPCs. §4.',
   agents: 'AI agents (Qualifier, Setter, Follow-up) on the OpenAI Responses API — no LLM key wired yet. §5.',
   automations: 'Visual trigger/action rules (no reply 3d → follow-up, etc.). §6.',
   analytics: 'Sent / replies / reply rate / qualification / conversion, by platform + campaign. §8.',
@@ -49,9 +49,14 @@ export function CrmShell() {
           {view === 'dm-queue' && <DmQueueView />}
           {view === 'leads' && <LeadsView />}
           {view === 'inbox' && <InboxView />}
-          {view !== 'dashboard' && view !== 'dm-queue' && view !== 'leads' && view !== 'inbox' && (
-            <ComingSoon title={LABEL[view]} icon={ICON[view]} note={NOTES[view]} />
-          )}
+          {view === 'campaigns' && <CampaignsView />}
+          {view !== 'dashboard' &&
+            view !== 'dm-queue' &&
+            view !== 'leads' &&
+            view !== 'inbox' &&
+            view !== 'campaigns' && (
+              <ComingSoon title={LABEL[view]} icon={ICON[view]} note={NOTES[view]} />
+            )}
         </main>
       </div>
     </div>

@@ -101,3 +101,67 @@ revoke all on function public.operator_crm_stats() from public, anon, authentica
 grant execute on function public.operator_crm_stats() to service_role;
 
 notify pgrst, 'reload schema';
+
+-- ── campaigns: saved segment + config; metrics computed live ────────────────
+-- Applied to project xprrkepdjhixzztuqqqv on 2026-08-21.
+create table if not exists ops.campaigns (
+  id          bigint generated always as identity primary key,
+  name        text not null,
+  platform    text not null default 'instagram',
+  goal        text,
+  source      text,                    -- segment filter on ops.leads.source; null = all
+  send_mode   text not null default 'manual',
+  daily_limit integer not null default 40,
+  status      text not null default 'active',   -- active | paused
+  actor       text,
+  created_at  timestamptz not null default now()
+);
+alter table ops.campaigns enable row level security;  -- deny-all: RPC-only
+
+create or replace function public.operator_campaign_create(
+  p_name text, p_platform text, p_goal text, p_source text,
+  p_send_mode text, p_daily_limit integer, p_actor text default null
+) returns bigint
+language sql volatile security definer set search_path = ops, pg_temp as $$
+  insert into ops.campaigns(name, platform, goal, source, send_mode, daily_limit, actor)
+  values (nullif(p_name,''), coalesce(nullif(p_platform,''),'instagram'), nullif(p_goal,''),
+          nullif(p_source,''), coalesce(nullif(p_send_mode,''),'manual'),
+          greatest(1, least(coalesce(p_daily_limit,40), 500)), p_actor)
+  returning id;
+$$;
+
+create or replace function public.operator_campaign_set_status(p_id bigint, p_status text)
+returns void
+language sql volatile security definer set search_path = ops, pg_temp as $$
+  update ops.campaigns set status = case when p_status = 'paused' then 'paused' else 'active' end
+   where id = p_id;
+$$;
+
+create or replace function public.operator_campaigns_list()
+returns table (
+  id bigint, name text, platform text, goal text, source text, send_mode text,
+  daily_limit integer, status text, created_at timestamptz,
+  assigned bigint, ready bigint, sent bigint, replies bigint, qualified bigint, won bigint
+)
+language sql stable security definer set search_path = ops, pg_temp as $$
+  select c.id, c.name, c.platform, c.goal, c.source, c.send_mode, c.daily_limit,
+         c.status, c.created_at,
+         count(l.*)                                                        as assigned,
+         count(l.*) filter (where l.stage in ('scraped','prospect','new')) as ready,
+         count(l.*) filter (where l.contacted_at is not null)              as sent,
+         count(l.*) filter (where l.replied_at is not null)                as replies,
+         count(l.*) filter (where l.stage = 'qualified')                   as qualified,
+         count(l.*) filter (where l.stage in ('signed','listed','won'))    as won
+  from ops.campaigns c
+  left join ops.leads l on (c.source is null or l.source = c.source)
+  group by c.id
+  order by c.created_at desc;
+$$;
+
+revoke all on function public.operator_campaign_create(text,text,text,text,text,integer,text) from public, anon, authenticated;
+revoke all on function public.operator_campaign_set_status(bigint,text) from public, anon, authenticated;
+revoke all on function public.operator_campaigns_list() from public, anon, authenticated;
+grant execute on function public.operator_campaign_create(text,text,text,text,text,integer,text) to service_role;
+grant execute on function public.operator_campaign_set_status(bigint,text) to service_role;
+grant execute on function public.operator_campaigns_list() to service_role;
+notify pgrst, 'reload schema';
