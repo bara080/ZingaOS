@@ -56,13 +56,18 @@ function num(n: number | null): string {
 export function History({
   onNavigate,
   onRerun,
+  onSync,
+  syncing,
 }: {
   onNavigate?: (v: CrmView) => void;
   onRerun?: (seed: RerunSeed) => void;
+  onSync?: () => void;
+  syncing?: boolean;
 }) {
   const { data, isLoading, isError } = useScrapeRuns();
   const runs = data?.runs ?? [];
   const pager = usePager(runs, 10, runs.length);
+  const hasStuck = runs.some((r) => (r.status || '').toLowerCase() === 'running');
 
   return (
     <div>
@@ -91,6 +96,18 @@ export function History({
             Recent runs — monitor status, yield and failures
           </div>
         </div>
+        <span style={{ flex: 1 }} />
+        {onSync && (
+          <button
+            onClick={onSync}
+            disabled={syncing}
+            style={{ ...ghostBtn(false), padding: '6px 11px', color: hasStuck ? C.amber : C.ink2, borderColor: hasStuck ? C.amber : C.line }}
+            title="Re-check Apify and finalize any runs stuck on 'running' (e.g. the tab closed mid-run)"
+          >
+            <RotateCw size={12} style={syncing ? { animation: 'operatorPulse 1s linear infinite' } : undefined} />
+            {syncing ? 'Syncing…' : 'Sync'}
+          </button>
+        )}
       </div>
 
       <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, overflow: 'hidden' }}>

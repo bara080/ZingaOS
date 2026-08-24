@@ -99,7 +99,31 @@ as $$
   limit greatest(1, least(coalesce(p_limit, 50), 200));
 $$;
 
+-- ── runs still marked 'running' (for server-side reconcile) ─────────────────
+-- The browser drives the poll→fetch→finalize flow; if the tab closes mid-run the
+-- run is orphaned as 'running'. The /scrape/reconcile route lists these, checks
+-- Apify directly, then finalizes (succeeded+leads / failed). Self-heals.
+create or replace function public.operator_scrape_runs_running()
+returns setof ops.scrape_runs
+language sql
+stable
+security definer
+set search_path = ops, pg_temp
+as $$
+  select * from ops.scrape_runs where status = 'running' order by started_at asc limit 50;
+$$;
+
 -- ── lock down: service_role only ────────────────────────────────────────────
+revoke all on function public.operator_scrape_runs_running()
+  from public, anon, authenticated;
+grant execute on function public.operator_scrape_runs_running()
+  to service_role;
+comment on function public.operator_scrape_runs_running() is
+  'Returns scrape_runs still in status=running, oldest first (max 50). Used by '
+  'POST /api/operator/scrape/reconcile to self-heal runs orphaned when the '
+  'browser tab closed mid-run: it re-checks Apify and finalizes them '
+  '(succeeded+upsert leads / failed). service_role only.';
+
 revoke all on function public.operator_scrape_run_start(text, text, text, int, text, text)
   from public, anon, authenticated;
 revoke all on function public.operator_scrape_run_finish(bigint, text, int, int, int, text)

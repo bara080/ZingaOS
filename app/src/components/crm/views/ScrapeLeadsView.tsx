@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { LayoutTemplate, Bookmark, Plus, Radar } from 'lucide-react';
 import {
   useScrapeFinish,
+  useScrapeReconcile,
   useScrapeResults,
   useScrapeStart,
   useScrapeStatus,
@@ -68,6 +69,14 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
   const start = useScrapeStart();
   const results = useScrapeResults();
   const finish = useScrapeFinish();
+  const reconcile = useScrapeReconcile();
+
+  // On mount, self-heal any runs orphaned as 'running' (a prior tab closed before
+  // Apify finished) — re-checks Apify server-side and finalizes them + pulls leads.
+  useEffect(() => {
+    reconcile.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const polling = phase === 'running' && !!runId;
   const { data: status } = useScrapeStatus(runId, polling);
   const running = phase === 'starting' || phase === 'running' || phase === 'fetching';
@@ -234,7 +243,12 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
 
       {/* SCRAPE HISTORY */}
       <div style={{ marginTop: 24 }}>
-        <History onNavigate={onNavigate} onRerun={rerunFrom} />
+        <History
+          onNavigate={onNavigate}
+          onRerun={rerunFrom}
+          onSync={() => reconcile.mutate()}
+          syncing={reconcile.isPending}
+        />
       </div>
 
       <ConfirmModal

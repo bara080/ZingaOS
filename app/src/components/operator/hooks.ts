@@ -133,6 +133,22 @@ export function useScrapeFinish() {
   });
 }
 
+// Server-side reconcile of orphaned 'running' runs (tab closed mid-run). Refreshes
+// the history feed + leads/stats afterwards so healed runs surface with results.
+export function useScrapeReconcile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => operatorApi.scrapeReconcile(),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: operatorKeys.scrapeRuns });
+      if (res.reconciled > 0) {
+        qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
+        qc.invalidateQueries({ queryKey: ['crm', 'stats'] });
+      }
+    },
+  });
+}
+
 // ── Social → Instagram ────────────────────────────────────────────────────
 export function useIgConversations(enabled: boolean) {
   return useQuery({

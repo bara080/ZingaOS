@@ -81,6 +81,7 @@ export type ScrapeRun = {
 };
 export type ScrapeRunsResponse = { runs: ScrapeRun[] };
 export type ScrapeFinishResponse = { ok: boolean };
+export type ScrapeReconcileResponse = { reconciled: number; checked: number; error?: string };
 export type ScrapeItem = {
   business: string;
   owner: string;
@@ -152,6 +153,8 @@ export const operatorApi = {
   scrapeRuns: (limit = 50) => req<ScrapeRunsResponse>(`/api/operator/scrape/runs?limit=${limit}`),
   scrapeFinish: (body: { id: number; status: 'failed' | 'succeeded'; error?: string }) =>
     post<ScrapeFinishResponse>('/api/operator/scrape/finish', body),
+  // Server-side self-heal for runs orphaned as 'running' (tab closed mid-run).
+  scrapeReconcile: () => post<ScrapeReconcileResponse>('/api/operator/scrape/reconcile', {}),
 
   sendBatch: (body: { src: string; limit: number }) =>
     post<SendBatchResponse>('/api/operator/send-batch', body),
