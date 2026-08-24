@@ -33,7 +33,8 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 # ...but keep the example (key names only, no secrets) committable
-!.env.local.example
+# .env.local.example is intentionally NOT committed (gitignored) — it kept
+# tripping the guard_git hook on placeholder credential-shaped lines.
 
 # vercel
 .vercel

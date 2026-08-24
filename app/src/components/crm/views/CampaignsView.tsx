@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Play, Pause, Instagram, Mail, Music2, Twitter, Facebook } from 'lucide-react';
 import { useCampaigns, useSegments, useCampaignCreate, useCampaignSetStatus } from '../hooks';
 import type { Campaign } from '../api';
+import { Pager, usePager } from '../Pager';
 import { C } from '@/components/operator/theme';
 
 const PLATFORMS = [
@@ -30,6 +31,7 @@ export function CampaignsView() {
   const create = useCampaignCreate();
   const setStatus = useCampaignSetStatus();
   const campaigns = listQ.data?.campaigns ?? [];
+  const pager = usePager(campaigns, 6, campaigns.length);
 
   // create-form state
   const [name, setName] = useState('');
@@ -73,7 +75,7 @@ export function CampaignsView() {
               {listQ.isLoading ? 'loading…' : 'No campaigns yet — create one on the right.'}
             </div>
           ) : (
-            campaigns.map((c: Campaign) => {
+            pager.slice.map((c: Campaign) => {
               const Icon = platformIcon(c.platform);
               const active = c.status === 'active';
               return (
@@ -122,6 +124,7 @@ export function CampaignsView() {
               );
             })
           )}
+          <Pager p={pager} noun="campaigns" />
         </div>
 
         {/* ── create builder ───────────────────────────────────────── */}

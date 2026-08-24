@@ -8,13 +8,10 @@
 // Instagram, then Mark as Sent advances the queue.
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, Copy, Check, SkipForward, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useLeads, useMarkSent, useCrmStats } from '../hooks';
+import { useLeads, useMarkSent, useCrmStats, useLeadActivity, useAgents } from '../hooks';
 import { draftDm, leadHandle, leadName, type Lead } from '../api';
+import { DAILY_DM_CAP } from '../channels';
 import { C } from '@/components/operator/theme';
-
-// Warming / ban-safety cap on manual IG DMs per day (see docs/outreach-crm-plan.md).
-// Start conservative; raise deliberately as the account warms.
-const DAILY_DM_CAP = 40;
 
 type QueueTab = 'all' | 'new' | 'contacted' | 'followup';
 
@@ -63,7 +60,11 @@ export function DmQueueView() {
   const [copied, setCopied] = useState(false);
   const [sendMode, setSendMode] = useState<'manual' | 'api' | 'autopilot'>('manual');
   const [flash, setFlash] = useState<string | null>(null);
+  const [rightTab, setRightTab] = useState<'agent' | 'conversation' | 'profile' | 'activity'>('agent');
   const mark = useMarkSent();
+  const activityQ = useLeadActivity(lead?.id ?? null, rightTab === 'activity');
+  const agentsQ = useAgents();
+  const activeAgent = (agentsQ.data?.agents ?? []).find((a) => a.enabled) ?? null;
 
   // Regenerate the draft whenever the selected lead changes.
   useEffect(() => {
@@ -72,6 +73,15 @@ export function DmQueueView() {
   }, [lead?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const advance = () => setIdx((i) => Math.min(i + 1, list.length - 1));
+
+  // Queue pagination — page is derived from the selected index so paging and
+  // lead-navigation stay in sync (Skip/Next can roll onto the next page).
+  const PAGE = 8;
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE));
+  const page = Math.floor(clampedIdx / PAGE);
+  const pageStart = page * PAGE;
+  const pageLeads = list.slice(pageStart, pageStart + PAGE);
+  const gotoPage = (p: number) => setIdx(Math.min(Math.max(p, 0), pageCount - 1) * PAGE);
 
   const markSent = () => {
     if (!lead || mark.isPending) return;
@@ -135,9 +145,9 @@ export function DmQueueView() {
         </label>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr 300px', gap: 14, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr 320px', gap: 14, alignItems: 'start' }}>
         {/* ── col 1: queue ─────────────────────────────────────────── */}
-        <div style={colCard}>
+        <div style={{ ...colCard, display: 'flex', flexDirection: 'column', maxHeight: 520 }}>
           <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
             {tabs.map((t) => (
               <button
@@ -164,7 +174,7 @@ export function DmQueueView() {
             placeholder="Search queue…"
             style={{ ...fieldStyle, width: '100%', marginBottom: 10 }}
           />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 460, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {query.isLoading ? (
               <div style={{ fontFamily: C.mono, fontSize: 11, color: C.ink3, padding: 8 }}>loading…</div>
             ) : list.length === 0 ? (
@@ -172,7 +182,8 @@ export function DmQueueView() {
                 no DM-able leads (need an Instagram handle)
               </div>
             ) : (
-              list.map((l, i) => {
+              pageLeads.map((l, pi) => {
+                const i = pageStart + pi;
                 const on = i === clampedIdx;
                 const sent = sentIds.has(l.id);
                 return (
@@ -200,6 +211,23 @@ export function DmQueueView() {
               })
             )}
           </div>
+
+          {/* queue pagination */}
+          {list.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.line}` }}>
+              <span style={{ fontFamily: C.mono, fontSize: 10, color: C.ink3 }}>
+                {pageStart + 1}–{Math.min(pageStart + PAGE, list.length)} of {list.length}
+              </span>
+              <span style={{ flex: 1 }} />
+              <button onClick={() => gotoPage(page - 1)} disabled={page === 0} style={pageBtn(page === 0)}>
+                <ChevronLeft size={13} />
+              </button>
+              <span style={{ fontFamily: C.mono, fontSize: 10, color: C.ink2 }}>{page + 1}/{pageCount}</span>
+              <button onClick={() => gotoPage(page + 1)} disabled={page >= pageCount - 1} style={pageBtn(page >= pageCount - 1)}>
+                <ChevronRight size={13} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── col 2: selected lead + message ───────────────────────── */}
@@ -314,13 +342,131 @@ export function DmQueueView() {
           )}
         </div>
 
-        {/* ── col 3: conversation / activity ───────────────────────── */}
+        {/* ── col 3: conversation / profile / activity ─────────────── */}
         <div style={colCard}>
-          <label style={eyebrow}>Conversation</label>
-          <div style={{ fontFamily: C.mono, fontSize: 11.5, color: C.ink3, padding: '18px 4px', textAlign: 'center', lineHeight: 1.6 }}>
-            No conversation yet. Replies from @zingaapp land here once the inbox is
-            wired to ops.ig_messages (build-up step).
+          <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+            {(['agent', 'conversation', 'profile', 'activity'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setRightTab(t)}
+                style={{
+                  flex: 1,
+                  fontFamily: C.mono,
+                  fontSize: 10.5,
+                  padding: '6px 4px',
+                  borderRadius: 7,
+                  border: `1px solid ${rightTab === t ? C.teal : C.line}`,
+                  background: rightTab === t ? 'rgba(47,217,201,0.10)' : 'transparent',
+                  color: rightTab === t ? C.teal : C.ink2,
+                  cursor: 'pointer',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {t}
+              </button>
+            ))}
           </div>
+
+          {!lead ? (
+            <div style={rightEmpty}>Pick a lead.</div>
+          ) : rightTab === 'agent' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <div style={agentEyebrow}>Assigned agent</div>
+                <div style={{ fontFamily: C.sans, fontSize: 12.5, color: activeAgent ? C.teal : C.ink3 }}>
+                  {activeAgent ? activeAgent.name : 'none enabled — configure in AI Agents'}
+                </div>
+              </div>
+              <div>
+                <div style={agentEyebrow}>Next best action</div>
+                <div style={{ fontFamily: C.sans, fontSize: 12.5, color: C.ink }}>{nextBestAction(lead)}</div>
+                <div style={{ fontFamily: C.mono, fontSize: 10, color: C.ink3, marginTop: 3 }}>
+                  confidence {confidence(lead)} · rule-based
+                </div>
+              </div>
+              <div>
+                <div style={agentEyebrow}>Retrieval context (RAG)</div>
+                <ul style={{ margin: '4px 0 0', paddingLeft: 16, fontFamily: C.mono, fontSize: 10.5, color: C.ink2, lineHeight: 1.7 }}>
+                  <li>Zinga company + voice (context/*.md)</li>
+                  <li>Lead profile — {lead.category || 'category'} · {lead.borough || 'NYC'}</li>
+                  <li>Prior activity ({activityQ.data?.activity?.length ?? 0} sends)</li>
+                  <li>Conversation history (ops.ig_messages)</li>
+                </ul>
+              </div>
+              <div
+                style={{
+                  fontFamily: C.mono,
+                  fontSize: 10,
+                  color: C.amber,
+                  border: `1px solid ${C.line}`,
+                  borderRadius: 9,
+                  background: 'rgba(230,178,76,0.06)',
+                  padding: 10,
+                  lineHeight: 1.6,
+                }}
+              >
+                Reasoning is rule-based. Wire the OpenAI Responses API + a vector store
+                over the sources above to make this a generative RAG agent (docs
+                §5 / AI-SDR). The backend owns tools + permissions; the model only
+                requests permitted actions.
+              </div>
+            </div>
+          ) : rightTab === 'conversation' ? (
+            <div style={rightEmpty}>
+              No conversation yet. Replies from @zingaapp appear in the Inbox once
+              this lead messages back (24h window).
+            </div>
+          ) : rightTab === 'profile' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <ProfRow k="Business" v={lead.business} />
+              <ProfRow k="Owner" v={lead.owner} />
+              <ProfRow k="Handle" v={leadHandle(lead)} accent={C.teal} />
+              <ProfRow k="Email" v={lead.email} />
+              <ProfRow k="Phone" v={lead.phone} />
+              <ProfRow k="Website" v={lead.website} />
+              <ProfRow k="Category" v={lead.category} />
+              <ProfRow k="Borough" v={lead.borough} />
+              <ProfRow k="Source" v={lead.source} />
+              <ProfRow k="Stage" v={lead.stage} />
+              <ProfRow k="Reviews" v={lead.reviews != null ? String(lead.reviews) : null} />
+              <ProfRow k="Contacted" v={lead.contacted_at} />
+              {lead.notes && (
+                <div style={{ marginTop: 8, fontFamily: C.mono, fontSize: 10.5, color: C.ink3, lineHeight: 1.6 }}>
+                  <div style={{ color: C.ink2, marginBottom: 3 }}>Notes</div>
+                  {lead.notes}
+                </div>
+              )}
+            </div>
+          ) : (
+            // activity
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {activityQ.isLoading ? (
+                <div style={rightEmpty}>loading…</div>
+              ) : (activityQ.data?.activity ?? []).length === 0 ? (
+                <div style={rightEmpty}>
+                  No sends logged yet. Mark this lead as Sent and it appears here.
+                </div>
+              ) : (
+                (activityQ.data?.activity ?? []).map((a) => (
+                  <div key={a.id} style={{ border: `1px solid ${C.line}`, borderRadius: 8, padding: '8px 10px', background: C.panel2 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontFamily: C.mono, fontSize: 10.5, color: C.teal, textTransform: 'capitalize' }}>
+                        {a.platform} · {a.send_mode}
+                      </span>
+                      <span style={{ fontFamily: C.mono, fontSize: 9.5, color: C.ink3 }}>
+                        {new Date(a.sent_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {a.message && (
+                      <div style={{ fontFamily: C.sans, fontSize: 11.5, color: C.ink2, marginTop: 4, lineHeight: 1.4 }}>
+                        {a.message.length > 90 ? `${a.message.slice(0, 88)}…` : a.message}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -352,6 +498,34 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+// Rule-based next-best-action + confidence, derived from the lead's real stage.
+// This is the deterministic stand-in for the AI-SDR agent until OpenAI + RAG
+// are wired (docs/outreach-crm-plan.md §5).
+function nextBestAction(l: Lead): string {
+  const s = (l.stage || 'scraped').toLowerCase();
+  if (s === 'replied' || l.replied_at) return 'Qualify — ask a discovery question';
+  if (s === 'contacted') return 'Wait for reply · follow up in 3 days if silent';
+  if (s === 'qualified') return 'Book a demo / send the listing link';
+  if (s === 'scraped' || s === 'prospect' || s === 'new')
+    return l.instagram ? 'Send the intro DM (manual)' : 'No handle — reach via email instead';
+  return 'Review lead';
+}
+function confidence(l: Lead): string {
+  const s = (l.stage || 'scraped').toLowerCase();
+  if (l.replied_at || s === 'replied' || s === 'qualified') return 'high';
+  if (s === 'contacted') return 'medium';
+  return l.instagram ? 'medium' : 'low';
+}
+
+function ProfRow({ k, v, accent }: { k: string; v: string | null; accent?: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, padding: '5px 0', borderTop: `1px solid ${C.line}` }}>
+      <span style={{ fontFamily: C.mono, fontSize: 9.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: C.ink3, width: 74, flexShrink: 0 }}>{k}</span>
+      <span style={{ fontFamily: C.sans, fontSize: 11.5, color: v ? accent ?? C.ink2 : C.ink3, wordBreak: 'break-word' }}>{v || '—'}</span>
+    </div>
+  );
+}
+
 function MsgChip({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -378,6 +552,36 @@ const colCard: React.CSSProperties = {
   background: 'rgba(18,21,28,0.5)',
   padding: 14,
   minHeight: 200,
+};
+const rightEmpty: React.CSSProperties = {
+  fontFamily: C.mono,
+  fontSize: 11.5,
+  color: C.ink3,
+  padding: '18px 4px',
+  textAlign: 'center',
+  lineHeight: 1.6,
+};
+function pageBtn(disabled: boolean): React.CSSProperties {
+  return {
+    display: 'grid',
+    placeItems: 'center',
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    border: `1px solid ${C.line}`,
+    background: C.panel2,
+    color: disabled ? C.ink3 : C.ink2,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+  };
+}
+const agentEyebrow: React.CSSProperties = {
+  fontFamily: C.mono,
+  fontSize: 9,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  color: C.ink3,
+  marginBottom: 4,
 };
 const eyebrow: React.CSSProperties = {
   fontFamily: C.mono,

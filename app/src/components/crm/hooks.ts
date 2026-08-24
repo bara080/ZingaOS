@@ -13,6 +13,9 @@ export const crmKeys = {
   igThread: (igsid: string | null) => ['crm', 'ig', 'thread', igsid] as const,
   campaigns: ['crm', 'campaigns'] as const,
   segments: ['crm', 'segments'] as const,
+  analytics: (days: number) => ['crm', 'analytics', days] as const,
+  agents: ['crm', 'agents'] as const,
+  automations: ['crm', 'automations'] as const,
 };
 
 export function useLeads(params?: { stage?: string; source?: string; q?: string }) {
@@ -92,6 +95,87 @@ export function useCampaignSetStatus() {
   return useMutation({
     mutationFn: (vars: { id: number; status: 'active' | 'paused' }) => crmApi.campaignSetStatus(vars),
     onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.campaigns }),
+  });
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────
+export function useAnalytics(days = 14) {
+  return useQuery({
+    queryKey: crmKeys.analytics(days),
+    queryFn: () => crmApi.analytics(days),
+    refetchInterval: 60_000,
+  });
+}
+
+// ── Per-lead activity (DM Queue · Activity tab) ─────────────────────────────
+export function useLeadActivity(leadId: number | null, enabled = true) {
+  return useQuery({
+    queryKey: ['crm', 'lead-activity', leadId] as const,
+    queryFn: () => crmApi.leadActivity(leadId as number),
+    enabled: enabled && !!leadId,
+    refetchInterval: false,
+  });
+}
+
+// ── AI Agents ───────────────────────────────────────────────────────────────
+export function useAgents() {
+  return useQuery({
+    queryKey: crmKeys.agents,
+    queryFn: () => crmApi.agents(),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useAgentCreate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof crmApi.agentCreate>[0]) => crmApi.agentCreate(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.agents }),
+  });
+}
+
+export function useAgentSetEnabled() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: number; enabled: boolean }) => crmApi.agentSetEnabled(vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.agents }),
+  });
+}
+
+// ── Automations ───────────────────────────────────────────────────────────────
+export function useAutomations() {
+  return useQuery({
+    queryKey: crmKeys.automations,
+    queryFn: () => crmApi.automations(),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useAutomationCreate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof crmApi.automationCreate>[0]) => crmApi.automationCreate(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.automations }),
+  });
+}
+
+export function useAutomationSetEnabled() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: number; enabled: boolean }) => crmApi.automationSetEnabled(vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.automations }),
+  });
+}
+
+// Add a lead from the Leads screen; invalidate the leads lists on success.
+export function useLeadAdd() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof crmApi.leadAdd>[0]) => crmApi.leadAdd(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
   });
 }
 

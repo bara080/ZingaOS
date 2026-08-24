@@ -46,11 +46,14 @@ async function req<T>(url: string, init?: RequestInit): Promise<T> {
 export type MarkSentResponse = { ok: boolean; messageId: number };
 
 export type CrmStats = {
+  total_leads: number;
   ready_to_contact: number;
   contacted: number;
   sent_total: number;
   sent_today: number;
   inbound_threads: number;
+  replied: number;
+  followups: number;
   qualified: number;
   won: number;
 };
@@ -61,6 +64,7 @@ export type IgThread = {
   igsid: string;
   username: string | null;
   last_text: string | null;
+  last_direction: 'in' | 'out' | null;
   last_at: string;
   msg_count: number;
 };
@@ -98,6 +102,59 @@ export type CreateCampaignBody = {
   sendMode?: string;
   dailyLimit?: number;
 };
+
+export type Agent = {
+  id: number;
+  name: string;
+  role: string | null;
+  tone: string | null;
+  goal: string | null;
+  system_prompt: string | null;
+  model: string;
+  temperature: number;
+  escalation: string | null;
+  enabled: boolean;
+  actor: string | null;
+  created_at: string;
+};
+export type AgentsResponse = { agents: Agent[] };
+export type CreateAgentBody = {
+  name: string;
+  role?: string;
+  tone?: string;
+  goal?: string;
+  systemPrompt?: string;
+  model?: string;
+  temperature?: number;
+  escalation?: string;
+};
+
+export type AutomationRule = {
+  id: number;
+  name: string;
+  trigger: string;
+  action: string;
+  enabled: boolean;
+  actor: string | null;
+  created_at: string;
+};
+export type AutomationsResponse = { rules: AutomationRule[] };
+export type CreateAutomationBody = { name: string; trigger: string; action: string };
+
+export type LeadActivity = {
+  id: number;
+  platform: string;
+  send_mode: string;
+  message: string | null;
+  status: string;
+  actor: string | null;
+  sent_at: string;
+};
+export type LeadActivityResponse = { activity: LeadActivity[] };
+
+export type TimeseriesPoint = { day: string; sent: number; replies: number };
+export type PlatformSends = { platform: string; sent: number };
+export type AnalyticsResponse = { timeseries: TimeseriesPoint[]; byPlatform: PlatformSends[] };
 
 export const crmApi = {
   leads: (params?: { stage?: string; source?: string; q?: string; limit?: number }) => {
@@ -147,6 +204,46 @@ export const crmApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
+
+  analytics: (days = 14) => req<AnalyticsResponse>(`/api/operator/crm/analytics?days=${days}`),
+
+  leadActivity: (leadId: number) =>
+    req<LeadActivityResponse>(`/api/operator/crm/lead-activity?leadId=${leadId}`),
+
+  leadAdd: (body: { business?: string; instagram?: string; email?: string; source?: string }) =>
+    req<{ added: boolean; id: number | null }>('/api/operator/crm/lead-add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  agents: () => req<AgentsResponse>('/api/operator/crm/agents'),
+  agentCreate: (body: CreateAgentBody) =>
+    req<{ ok: boolean; id: number }>('/api/operator/crm/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  agentSetEnabled: (body: { id: number; enabled: boolean }) =>
+    req<{ ok: boolean; enabled: boolean }>('/api/operator/crm/agents/enabled', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  automations: () => req<AutomationsResponse>('/api/operator/crm/automations'),
+  automationCreate: (body: CreateAutomationBody) =>
+    req<{ ok: boolean; id: number }>('/api/operator/crm/automations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  automationSetEnabled: (body: { id: number; enabled: boolean }) =>
+    req<{ ok: boolean; enabled: boolean }>('/api/operator/crm/automations/enabled', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
 };
 
 // ── helpers shared by CRM views ────────────────────────────────────────────
@@ -157,6 +254,31 @@ export function leadName(l: Lead): string {
 export function leadHandle(l: Lead): string | null {
   if (!l.instagram) return null;
   return l.instagram.startsWith('@') ? l.instagram : `@${l.instagram}`;
+}
+
+// Heuristic 0–99 lead score from the real signals we have (reviews, reachability,
+// stage progression). Deterministic stand-in until a scoring agent is wired.
+export function leadScore(l: Lead): number {
+  let s = 0;
+  if (l.reviews) s += Math.min(l.reviews, 50) / 50 * 40; // up to 40 from reviews
+  if (l.email) s += 15;
+  if (l.instagram) s += 15;
+  const stage = (l.stage || '').toLowerCase();
+  if (stage === 'contacted') s += 8;
+  else if (stage === 'replied' || l.replied_at) s += 18;
+  else if (stage === 'qualified') s += 26;
+  else if (['signed', 'listed', 'won'].includes(stage)) s += 30;
+  return Math.max(1, Math.min(99, Math.round(s)));
+}
+
+// Short "next action" label from the lead's stage (mirrors the DM Queue agent).
+export function leadNextAction(l: Lead): string {
+  const s = (l.stage || 'scraped').toLowerCase();
+  if (s === 'replied' || l.replied_at) return 'Qualify';
+  if (s === 'contacted') return 'Follow up';
+  if (s === 'qualified') return 'Book demo';
+  if (['signed', 'listed', 'won'].includes(s)) return 'Won';
+  return l.instagram ? 'Send DM' : 'Email';
 }
 
 // Zinga-voice template DM derived from real lead fields (matches the email

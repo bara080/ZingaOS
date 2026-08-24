@@ -1,5 +1,6 @@
 .env
 .env.example
+.env.local.example
 .claude/
 .claude/settings.local.json
 # includes .claude/skills/ig-lead-scrape/ (Apify IG scrape + Meta DM prep) — stays local
@@ -33,6 +34,9 @@ brain/companies/*
 # --- Publish code only: ignore every .md except README.md (keeps docs/strategy private) ---
 *.md
 !README.md
+
+# internal docs/runbooks + design plans — stay local (how-to-create-ig, outreach-crm-plan, etc.)
+docs/
 
 # local venv + any oauth creds
 .venv/

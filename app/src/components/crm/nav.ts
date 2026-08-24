@@ -2,7 +2,7 @@
 // DM Queue is the priority surface and the default view.
 import type { LucideIcon } from 'lucide-react';
 import {
-  LayoutDashboard,
+  Home,
   Send,
   Users,
   Inbox,
@@ -25,7 +25,7 @@ export type CrmView =
   | 'settings';
 
 export const CRM_NAV: { key: CrmView; label: string; icon: LucideIcon }[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { key: 'dashboard', label: 'Home', icon: Home },
   { key: 'dm-queue', label: 'DM Queue', icon: Send },
   { key: 'leads', label: 'Leads', icon: Users },
   { key: 'inbox', label: 'Inbox', icon: Inbox },

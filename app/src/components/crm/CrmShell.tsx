@@ -1,33 +1,38 @@
 'use client';
 
 // Zinga CRM shell. Reuses the console TopNav (current="crm") + a CRM-specific
-// left sidebar, and routes the 9 views. DM Queue + Leads are wired to real
-// ops.leads data; the rest are honest "build-up" placeholders per
-// docs/outreach-crm-plan.md. Same near-black palette as the operator.
+// left sidebar, and routes the 9 views — all wired to real ops.* data via the
+// /api/operator/* routes. Same near-black palette as the operator.
 import { useState } from 'react';
 import { TopNav } from '@/components/operator/TopNav';
 import { C } from '@/components/operator/theme';
 import { CrmSidebar } from './CrmSidebar';
-import { CRM_NAV, DEFAULT_VIEW, type CrmView } from './nav';
+import { DEFAULT_VIEW, type CrmView } from './nav';
+import { DashboardView } from './views/DashboardView';
 import { DmQueueView } from './views/DmQueueView';
 import { LeadsView } from './views/LeadsView';
-import { DashboardView } from './views/DashboardView';
 import { InboxView } from './views/InboxView';
 import { CampaignsView } from './views/CampaignsView';
-import { ComingSoon } from './views/ComingSoon';
+import { AgentsView } from './views/AgentsView';
+import { AutomationsView } from './views/AutomationsView';
+import { AnalyticsView } from './views/AnalyticsView';
+import { SettingsView } from './views/SettingsView';
 
-const ICON = Object.fromEntries(CRM_NAV.map((n) => [n.key, n.icon]));
-const LABEL = Object.fromEntries(CRM_NAV.map((n) => [n.key, n.label]));
-
-const NOTES: Partial<Record<CrmView, string>> = {
-  agents: 'AI agents (Qualifier, Setter, Follow-up) on the OpenAI Responses API — no LLM key wired yet. §5.',
-  automations: 'Visual trigger/action rules (no reply 3d → follow-up, etc.). §6.',
-  analytics: 'Sent / replies / reply rate / qualification / conversion, by platform + campaign. §8.',
-  settings: 'Channels (capabilities as data), integrations, AI, limits & safety, team. §9.',
+const VIEWS: Record<CrmView, React.ComponentType<{ onNavigate?: (v: CrmView) => void }>> = {
+  dashboard: DashboardView,
+  'dm-queue': DmQueueView,
+  leads: LeadsView,
+  inbox: InboxView,
+  campaigns: CampaignsView,
+  agents: AgentsView,
+  automations: AutomationsView,
+  analytics: AnalyticsView,
+  settings: SettingsView,
 };
 
 export function CrmShell() {
   const [view, setView] = useState<CrmView>(DEFAULT_VIEW);
+  const View = VIEWS[view];
 
   return (
     <div
@@ -45,18 +50,7 @@ export function CrmShell() {
       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
         <CrmSidebar active={view} onSelect={setView} />
         <main style={{ flex: 1, minWidth: 0, width: '100%', padding: '18px 24px 48px' }}>
-          {view === 'dashboard' && <DashboardView />}
-          {view === 'dm-queue' && <DmQueueView />}
-          {view === 'leads' && <LeadsView />}
-          {view === 'inbox' && <InboxView />}
-          {view === 'campaigns' && <CampaignsView />}
-          {view !== 'dashboard' &&
-            view !== 'dm-queue' &&
-            view !== 'leads' &&
-            view !== 'inbox' &&
-            view !== 'campaigns' && (
-              <ComingSoon title={LABEL[view]} icon={ICON[view]} note={NOTES[view]} />
-            )}
+          <View onNavigate={setView} />
         </main>
       </div>
     </div>
