@@ -3,7 +3,7 @@
 // Zinga CRM shell. Reuses the console TopNav (current="crm") + a CRM-specific
 // left sidebar, and routes the 9 views — all wired to real ops.* data via the
 // /api/operator/* routes. Same near-black palette as the operator.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TopNav } from '@/components/operator/TopNav';
 import { C } from '@/components/operator/theme';
 import { CrmSidebar } from './CrmSidebar';
@@ -32,7 +32,24 @@ const VIEWS: Record<CrmView, React.ComponentType<{ onNavigate?: (v: CrmView) => 
 
 export function CrmShell() {
   const [view, setView] = useState<CrmView>(DEFAULT_VIEW);
+  const [collapsed, setCollapsed] = useState(false);
   const View = VIEWS[view];
+
+  // Restore the collapse preference on mount, then persist any change.
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem('crm.sidebar.collapsed') === '1');
+    } catch {
+      /* localStorage unavailable — keep the default */
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem('crm.sidebar.collapsed', collapsed ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [collapsed]);
 
   return (
     <div
@@ -48,7 +65,12 @@ export function CrmShell() {
       <TopNav current="crm" note="CRM · outreach execution" />
 
       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-        <CrmSidebar active={view} onSelect={setView} />
+        <CrmSidebar
+          active={view}
+          onSelect={setView}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((c) => !c)}
+        />
         <main style={{ flex: 1, minWidth: 0, width: '100%', padding: '18px 24px 48px' }}>
           <View onNavigate={setView} />
         </main>

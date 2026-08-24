@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireIgDemo } from '@/lib/operator/guard';
-import { llmConfigured, generate, ZINGA_VOICE } from '@/lib/llm';
+import { llmConfigured, generate, ZINGA_VOICE, ZINGA_LINKS, ZINGA_LINKS_LINE } from '@/lib/llm';
 
 // POST /api/operator/crm/dm-draft  { name?, business?, category?, borough? }
 // Generates a first-touch cold intro DM for a lead in Zinga's voice (gpt-4o).
@@ -17,7 +17,13 @@ function template(name: string, category: string, borough: string): string {
     : cat.includes('massage') || cat.includes('spa') ? 'spas'
     : 'local businesses';
   const where = borough ? ` in ${borough}` : '';
-  return `Hey! Came across ${name}${where} and really love your work. We help ${noun} fill mid-week gaps and take bookings directly through Zinga — no cost to be listed. Open to a quick 2-min look?`;
+  return (
+    `Hey! Came across ${name}${where} and really love your work. We help ${noun} ` +
+    `fill mid-week gaps and take bookings directly through Zinga — no cost to be ` +
+    `listed. You can check it out at ${ZINGA_LINKS.web} or grab the app — ` +
+    `iOS: ${ZINGA_LINKS.ios} · Android: ${ZINGA_LINKS.android}. ` +
+    `Open to a quick 2-min look?`
+  );
 }
 
 export async function POST(req: Request) {
@@ -41,7 +47,9 @@ export async function POST(req: Request) {
         ' Write a FIRST-TOUCH cold outreach DM to a prospective provider. Be ' +
         'specific and genuine (reference their business/category/area), lead with ' +
         'value (free listing, fills mid-week gaps, direct bookings), and end with a ' +
-        'light question. No signature. Output ONLY the message text.';
+        'light question. Include Zinga\'s destinations so they can act directly — ' +
+        'the website AND both app-store links (iOS and Android) — as a short line ' +
+        `near the end, exactly: ${ZINGA_LINKS_LINE}. No signature. Output ONLY the message text.`;
       const user = `Provider: ${name}${category ? ` · ${category}` : ''}${borough ? ` · ${borough}` : ''}. Write the intro DM.`;
       const { text, provider } = await generate(system, user);
       return NextResponse.json({ draft: text, source: provider });

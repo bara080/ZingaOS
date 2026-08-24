@@ -26,6 +26,19 @@ function anthropic(): Anthropic {
   return _anthropic;
 }
 
+// Canonical Zinga destinations. Same URLs used in the email signature
+// (lib/operator/smtp.ts). Give prospects the website AND both app stores so they
+// can act directly from the DM.
+export const ZINGA_LINKS = {
+  web: 'zingaapp.com',
+  ios: 'https://apps.apple.com/us/app/zinga-app/id6740720049',
+  android: 'https://play.google.com/store/apps/details?id=com.zinga.app',
+} as const;
+
+// A DM-ready one-liner with all three destinations.
+export const ZINGA_LINKS_LINE =
+  `Site: ${ZINGA_LINKS.web} · iOS: ${ZINGA_LINKS.ios} · Android: ${ZINGA_LINKS.android}`;
+
 // Shared voice. Mirrors context/voice.md + tools/draft_outreach_batch.py:
 // warm, concise, human, never corporate/salesy, DM-length, no invented facts.
 export const ZINGA_VOICE =
@@ -34,7 +47,9 @@ export const ZINGA_VOICE =
   'photographers, massage, auto). Voice: warm, concise, human, specific — never ' +
   'salesy, corporate, or generic. Keep it DM-length (2–4 short sentences). ' +
   'Never invent facts, numbers, or claims. Do not use hashtags. Emojis only if ' +
-  'genuinely natural (at most one). You are Bara, who runs Zinga.';
+  'genuinely natural (at most one). You are Bara, who runs Zinga. Zinga is on the ' +
+  'web at ' + ZINGA_LINKS.web + ', on iOS at ' + ZINGA_LINKS.ios + ', and on ' +
+  'Android at ' + ZINGA_LINKS.android + '.';
 
 async function viaOpenAI(system: string, user: string, maxTokens: number): Promise<string> {
   const res = await openai().responses.create({

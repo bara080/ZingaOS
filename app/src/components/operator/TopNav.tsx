@@ -8,12 +8,14 @@ import { C } from './theme';
 
 export type ConsoleDest = 'graph' | 'tree' | 'neural' | 'operator' | 'crm';
 
-const LINKS: { key: ConsoleDest; label: string; href: string }[] = [
+// `standalone` links are visually separated from the console group by a divider
+// — CRM is its own product surface, not part of the OS internals.
+const LINKS: { key: ConsoleDest; label: string; href: string; standalone?: boolean }[] = [
   { key: 'graph', label: 'Knowledge Graph', href: '/console/graph.html' },
   { key: 'tree', label: 'System Tree', href: '/console/tree.html' },
   { key: 'neural', label: 'Neural Map', href: '/console/neural.html' },
   { key: 'operator', label: 'Operator', href: '/operator' },
-  { key: 'crm', label: 'CRM', href: '/crm' },
+  { key: 'crm', label: 'CRM', href: '/crm', standalone: true },
 ];
 
 export function TopNav({ current, note }: { current: ConsoleDest; note?: string }) {
@@ -58,21 +60,33 @@ export function TopNav({ current, note }: { current: ConsoleDest; note?: string 
       {LINKS.map((l) => {
         const cur = l.key === current;
         return (
-          <a
-            key={l.key}
-            href={l.href}
-            style={{
-              fontSize: 11.5,
-              color: cur ? C.bg : C.ink2,
-              textDecoration: 'none',
-              padding: '6px 10px',
-              borderRadius: 7,
-              background: cur ? C.teal : 'transparent',
-              fontWeight: cur ? 600 : 400,
-            }}
-          >
-            {l.label}
-          </a>
+          <span key={l.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {l.standalone && (
+              <span
+                aria-hidden
+                style={{
+                  width: 1,
+                  height: 18,
+                  background: C.line,
+                  margin: '0 8px',
+                }}
+              />
+            )}
+            <a
+              href={l.href}
+              style={{
+                fontSize: 11.5,
+                color: cur ? C.bg : C.ink2,
+                textDecoration: 'none',
+                padding: '6px 10px',
+                borderRadius: 7,
+                background: cur ? C.teal : 'transparent',
+                fontWeight: cur ? 600 : 400,
+              }}
+            >
+              {l.label}
+            </a>
+          </span>
         );
       })}
       <span style={{ flex: 1 }} />
