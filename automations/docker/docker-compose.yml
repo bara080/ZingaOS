@@ -27,8 +27,23 @@ services:
       - GENERIC_TIMEZONE=America/New_York
       - N8N_RUNNERS_ENABLED=true
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_PROXY_HOPS=1                    # trust Caddy as the TLS-terminating proxy
     volumes:
       - n8n_data:/home/node/.n8n           # workflows, credentials, encryption key
+
+  caddy:
+    image: caddy:2
+    container_name: zinga-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data                    # persists the Let's Encrypt cert
+      - caddy_config:/config
+    depends_on:
+      - n8n
 
   worker:
     build: .                                # Debian + git + python3 + Claude Code CLI
@@ -49,3 +64,5 @@ services:
 volumes:
   n8n_data:
   claude_home:
+  caddy_data:
+  caddy_config:

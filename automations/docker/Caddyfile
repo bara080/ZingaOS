@@ -1,0 +1,6 @@
+# Caddy reverse proxy for the n8n editor. Auto-provisions + renews a Let's Encrypt
+# TLS cert for the domain below (needs DNS pointing at this box + ports 80/443 open).
+# Proxies to the n8n container over the compose network (service name `n8n`).
+n8n.zingaapp.com {
+    reverse_proxy n8n:5678
+}
