@@ -71,10 +71,29 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
   const finish = useScrapeFinish();
   const reconcile = useScrapeReconcile();
 
-  // On mount, self-heal any runs orphaned as 'running' (a prior tab closed before
-  // Apify finished) — re-checks Apify server-side and finalizes them + pulls leads.
+  // Self-heal runs orphaned as 'running' (a prior tab closed before Apify
+  // finished): re-check Apify server-side, finalize them, and surface the
+  // recovered leads in Live Results (not just the History row). Skips if a scrape
+  // is actively polling in this tab so it never clobbers an in-flight run.
+  const runReconcile = () => {
+    reconcile.mutate(undefined, {
+      onSuccess: (res) => {
+        if (runId) return; // an active scrape owns Live Results right now
+        const healed = res.healed ?? [];
+        if (!healed.length) return;
+        const recovered = healed.flatMap((h) => itemsToLeads(h.items, `apify-${h.source}`));
+        if (!recovered.length) return;
+        const newSaved = healed.reduce((a, h) => a + h.inserted, 0);
+        setBatch(recovered);
+        setNote(`↻ Recovered ${recovered.length} lead${recovered.length === 1 ? '' : 's'} from a previous run · ${newSaved} new saved`);
+        setPhase('done');
+      },
+    });
+  };
+
+  // Run reconcile once on mount.
   useEffect(() => {
-    reconcile.mutate();
+    runReconcile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const polling = phase === 'running' && !!runId;
@@ -246,7 +265,7 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
         <History
           onNavigate={onNavigate}
           onRerun={rerunFrom}
-          onSync={() => reconcile.mutate()}
+          onSync={runReconcile}
           syncing={reconcile.isPending}
         />
       </div>

@@ -81,7 +81,14 @@ export type ScrapeRun = {
 };
 export type ScrapeRunsResponse = { runs: ScrapeRun[] };
 export type ScrapeFinishResponse = { ok: boolean };
-export type ScrapeReconcileResponse = { reconciled: number; checked: number; error?: string };
+export type ScrapeReconcileResponse = {
+  reconciled: number;
+  checked: number;
+  error?: string;
+  // SUCCEEDED runs that were healed — their recovered leads, so the client can
+  // surface them in Live Results (not just the History row).
+  healed?: { source: ScrapeSource; items: ScrapeItem[]; found: number; dropped: number; inserted: number }[];
+};
 export type ScrapeItem = {
   business: string;
   owner: string;

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOperator } from '@/lib/operator/guard';
 import { createServiceClient } from '@/lib/supabase/admin';
-import { apifyStatus, apifyItems, isScrapeSource } from '@/lib/operator/apify';
+import { apifyStatus, apifyItems, isScrapeSource, type ScrapeSource, type CleanRow } from '@/lib/operator/apify';
 
 // POST /api/operator/scrape/reconcile
 // Self-heals scrape runs that were orphaned as 'running' — this happens when the
@@ -39,6 +39,9 @@ export async function POST() {
   const running = (data ?? []) as RunningRow[];
   const scrapedAt = new Date().toISOString().slice(0, 10);
   let reconciled = 0;
+  // Healed SUCCEEDED runs — returned so the client can surface the recovered
+  // leads in Live Results (not just the History row).
+  const healed: { source: ScrapeSource; items: CleanRow[]; found: number; dropped: number; inserted: number }[] = [];
 
   for (const r of running) {
     try {
@@ -80,7 +83,9 @@ export async function POST() {
           p_dropped: items.dropped,
           p_inserted: inserted,
           p_error: null,
+          p_duration_ms: st.durationMs ?? null, // REAL Apify runtime, not now()-started_at
         });
+        healed.push({ source, items: items.items, found: items.found, dropped: items.dropped, inserted });
         reconciled++;
       } else if (FAIL.has(s)) {
         await admin.rpc('operator_scrape_run_finish', {
@@ -90,6 +95,7 @@ export async function POST() {
           p_dropped: 0,
           p_inserted: 0,
           p_error: `run ${s.toLowerCase()}`,
+          p_duration_ms: st.durationMs ?? null,
         });
         reconciled++;
       }
@@ -99,5 +105,5 @@ export async function POST() {
     }
   }
 
-  return NextResponse.json({ reconciled, checked: running.length });
+  return NextResponse.json({ reconciled, checked: running.length, healed });
 }

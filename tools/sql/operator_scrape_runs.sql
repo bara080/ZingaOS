@@ -58,15 +58,19 @@ as $$
 $$;
 
 -- ── finish a run: set status + yield counts + duration ──────────────────────
--- duration_ms computed from the stored started_at. Status is normalized to
--- 'failed' unless explicitly 'succeeded'.
+-- Status is normalized to 'failed' unless explicitly 'succeeded'. Duration:
+-- callers that finalize in-band (the results route, tab open) omit p_duration_ms
+-- and we compute now()-started_at, which fairly reflects start→results. The
+-- reconcile route (which may finalize an orphaned run long after it actually ran)
+-- passes p_duration_ms = the REAL Apify runtime so history isn't inflated.
 create or replace function public.operator_scrape_run_finish(
-  p_id       bigint,
-  p_status   text,
-  p_found    int,
-  p_dropped  int,
-  p_inserted int,
-  p_error    text
+  p_id          bigint,
+  p_status      text,
+  p_found       int,
+  p_dropped     int,
+  p_inserted    int,
+  p_error       text,
+  p_duration_ms int default null
 )
 returns void
 language sql
@@ -81,7 +85,7 @@ as $$
          inserted    = p_inserted,
          error       = nullif(p_error,''),
          finished_at = now(),
-         duration_ms = (extract(epoch from (now() - started_at)) * 1000)::int
+         duration_ms = coalesce(p_duration_ms, (extract(epoch from (now() - started_at)) * 1000)::int)
    where id = p_id;
 $$;
 

@@ -91,13 +91,31 @@ export async function apifyStart(
   }
 }
 
-export async function apifyStatus(runId: string): Promise<{ status?: string; error?: string }> {
+export async function apifyStatus(
+  runId: string,
+): Promise<{ status?: string; durationMs?: number; error?: string }> {
   if (!token()) return { error: 'APIFY_TOKEN not set' };
   if (!runId) return { error: 'missing runId' };
   const url = `https://api.apify.com/v2/actor-runs/${encodeURIComponent(runId)}?token=${token()}`;
   try {
-    const resp = (await apifyReq('GET', url)) as { data?: { status?: string } };
-    return { status: resp.data?.status };
+    const resp = (await apifyReq('GET', url)) as {
+      data?: {
+        status?: string;
+        startedAt?: string;
+        finishedAt?: string;
+        stats?: { runTimeSecs?: number };
+      };
+    };
+    const d = resp.data;
+    // Real Apify runtime: prefer stats.runTimeSecs, else finishedAt - startedAt.
+    let durationMs: number | undefined;
+    if (typeof d?.stats?.runTimeSecs === 'number') {
+      durationMs = Math.round(d.stats.runTimeSecs * 1000);
+    } else if (d?.startedAt && d?.finishedAt) {
+      const ms = new Date(d.finishedAt).getTime() - new Date(d.startedAt).getTime();
+      if (Number.isFinite(ms) && ms >= 0) durationMs = ms;
+    }
+    return { status: d?.status, durationMs };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Apify status failed' };
   }
