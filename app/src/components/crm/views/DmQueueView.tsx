@@ -8,7 +8,7 @@
 // Instagram, then Mark as Sent advances the queue.
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, Copy, Check, SkipForward, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useLeads, useMarkSent, useCrmStats, useLeadActivity, useAgents } from '../hooks';
+import { useLeads, useMarkSent, useCrmStats, useLeadActivity, useAgents, useDmDraft } from '../hooks';
 import { draftDm, leadHandle, leadName, type Lead } from '../api';
 import { DAILY_DM_CAP } from '../channels';
 import { C } from '@/components/operator/theme';
@@ -65,6 +65,15 @@ export function DmQueueView() {
   const activityQ = useLeadActivity(lead?.id ?? null, rightTab === 'activity');
   const agentsQ = useAgents();
   const activeAgent = (agentsQ.data?.agents ?? []).find((a) => a.enabled) ?? null;
+  const dmDraft = useDmDraft();
+
+  const regenerate = () => {
+    if (!lead) return;
+    dmDraft.mutate(
+      { name: leadName(lead), business: lead.business ?? undefined, category: lead.category ?? undefined, borough: lead.borough ?? undefined },
+      { onSuccess: (r) => setMessage(r.draft) },
+    );
+  };
 
   // Regenerate the draft whenever the selected lead changes.
   useEffect(() => {
@@ -272,7 +281,7 @@ export function DmQueueView() {
                 style={{ ...fieldStyle, width: '100%', minHeight: 110, resize: 'vertical', lineHeight: 1.55, marginBottom: 8 }}
               />
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-                <MsgChip label="Regenerate" onClick={() => setMessage(draftDm(lead))} />
+                <MsgChip label={dmDraft.isPending ? 'Generating…' : '✨ Regenerate'} onClick={regenerate} />
                 <MsgChip label="Shorter" onClick={() => setMessage((m) => m.split('. ')[0].replace(/\.?$/, '.'))} />
                 <MsgChip label="Casual" onClick={() => setMessage((m) => (m.startsWith('Hey') ? m : `Hey 👋 ${m}`))} />
                 <MsgChip label="Formal" onClick={() => setMessage((m) => m.replace(/^Hey!?\s*👋?\s*/i, 'Hello, '))} />

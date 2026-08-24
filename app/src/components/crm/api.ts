@@ -217,6 +217,14 @@ export const crmApi = {
       body: JSON.stringify(body),
     }),
 
+  // First-touch intro DM draft (gpt-4o, template fallback server-side).
+  dmDraft: (body: { name?: string; business?: string; category?: string; borough?: string }) =>
+    req<{ draft: string; source: string }>('/api/operator/crm/dm-draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
   agents: () => req<AgentsResponse>('/api/operator/crm/agents'),
   agentCreate: (body: CreateAgentBody) =>
     req<{ ok: boolean; id: number }>('/api/operator/crm/agents', {

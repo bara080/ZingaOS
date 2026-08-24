@@ -167,6 +167,14 @@ export function useAutomationSetEnabled() {
   });
 }
 
+// AI intro-DM draft (gpt-4o) for the DM Queue.
+export function useDmDraft() {
+  return useMutation({
+    mutationFn: (vars: { name?: string; business?: string; category?: string; borough?: string }) =>
+      crmApi.dmDraft(vars),
+  });
+}
+
 // Add a lead from the Leads screen; invalidate the leads lists on success.
 export function useLeadAdd() {
   const qc = useQueryClient();

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireIgDemo } from '@/lib/operator/guard';
 import { createServiceClient } from '@/lib/supabase/admin';
+import { openaiConfigured, generate, ZINGA_VOICE } from '@/lib/openai';
 
 // POST /api/operator/ig/draft  { igsid }
 // Auth-gated. Generates a Zinga-voice reply DRAFT for a conversation. This ONLY
@@ -100,7 +101,28 @@ export async function POST(req: Request) {
   }
 
   const intent = lastInbound ? classify(lastInbound) : 'generic';
-  const draft = draftFor(intent);
 
-  return NextResponse.json({ draft, intent });
+  // Prefer a real LLM draft (gpt-4o) using the recent thread as context; fall
+  // back to the deterministic template if no key is set or the call fails.
+  if (openaiConfigured()) {
+    try {
+      const transcript = messages
+        .slice(-10)
+        .map((m) => `${m.direction === 'out' ? 'Zinga (us)' : 'Them'}: ${m.text ?? ''}`)
+        .join('\n');
+      const system =
+        ZINGA_VOICE +
+        ' You are replying inside an existing Instagram DM conversation. Write ONLY ' +
+        'the next reply message as Bara — no preamble, no quotes, no signature ' +
+        '(this is mid-conversation). Move the conversation toward getting the ' +
+        'provider listed on Zinga (free). Ask one simple question when it helps.';
+      const user = `Conversation so far:\n${transcript || '(no prior messages)'}\n\nWrite Zinga's next reply.`;
+      const draft = await generate(system, user);
+      return NextResponse.json({ draft, intent, source: 'openai' });
+    } catch (e) {
+      console.warn('[ig/draft] OpenAI failed, using template:', e instanceof Error ? e.message : e);
+    }
+  }
+
+  return NextResponse.json({ draft: draftFor(intent), intent, source: 'template' });
 }
