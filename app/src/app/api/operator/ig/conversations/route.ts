@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireOperator } from '@/lib/operator/guard';
+import { requireIgDemo } from '@/lib/operator/guard';
 import { listConversations, metaConfigured } from '@/lib/operator/meta';
 
 // GET /api/operator/ig/conversations
@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const gate = await requireOperator();
+  const gate = await requireIgDemo();
   if ('response' in gate) return gate.response;
 
   const conf = metaConfigured();

@@ -5,7 +5,7 @@
 // swaps panels by tab. Every panel is backed by a TanStack Query hook hitting the
 // existing /api/operator/* routes (unchanged). The whole surface renders in the
 // console's near-black dark palette regardless of the app theme.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Facebook, Music2, Twitter } from 'lucide-react';
 import { TopNav } from '@/components/operator/TopNav';
 import { Sidebar } from '@/components/operator/Sidebar';
@@ -19,6 +19,52 @@ import { C } from '@/components/operator/theme';
 
 export default function OperatorPage() {
   const [tab, setTab] = useState<OperatorTab>('analytics');
+  const [role, setRole] = useState<string | null>(null);
+
+  // Guests (e.g. the Meta reviewer) get the Instagram demo ONLY — no sidebar,
+  // no other panels (whose APIs would 403 anyway). Role comes from /whoami.
+  useEffect(() => {
+    fetch('/api/operator/whoami', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.role) {
+          setRole(d.role);
+          if (d.role === 'guest') setTab('ig');
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const isGuest = role === 'guest';
+
+  if (isGuest) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: `radial-gradient(1100px 600px at 40% 0%, #10151d, ${C.bg} 60%)`,
+          color: C.ink,
+          fontFamily: C.sans,
+        }}
+      >
+        <style>{`@keyframes operatorPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.6)}}`}</style>
+        <TopNav current="operator" note="guest · Instagram demo" />
+        <main style={{ maxWidth: 720, margin: '0 auto', padding: '24px 24px 48px' }}>
+          <div
+            style={{
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              fontSize: 11,
+              color: C.ink3,
+              marginBottom: 14,
+            }}
+          >
+            Guest access · Instagram connection + messaging only.
+          </div>
+          <InstagramPanel active />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div

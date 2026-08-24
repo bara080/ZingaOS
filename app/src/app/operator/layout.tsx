@@ -10,11 +10,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const OPERATOR_ROLES = new Set(['superadmin', 'admin']);
+// Operators + the limited `guest` role (Meta reviewer, Instagram demo only).
+const OPERATOR_VIEW_ROLES = new Set(['superadmin', 'admin', 'guest']);
 
 export default async function OperatorLayout({ children }: { children: React.ReactNode }) {
   const session = await readSession();
   if (!session) redirect('/login');
-  if (!OPERATOR_ROLES.has(session.role)) redirect('/login');
+  if (!OPERATOR_VIEW_ROLES.has(session.role)) redirect('/login');
   return children;
 }

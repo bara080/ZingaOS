@@ -16,4 +16,9 @@ export const ROLE_CONFIG = {
   csr: {
     label: 'Customer Service Representative',
   },
+  guest: {
+    // Limited external role — e.g. the Meta App reviewer. Can sign in and use the
+    // operator's Instagram demo (Connect + DM) only; no leads/CRM/scrape/email.
+    label: 'Guest',
+  },
 } as const;

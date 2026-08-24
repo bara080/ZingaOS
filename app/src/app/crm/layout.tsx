@@ -15,6 +15,7 @@ const OPERATOR_ROLES = new Set(['superadmin', 'admin']);
 export default async function CrmLayout({ children }: { children: React.ReactNode }) {
   const session = await readSession();
   if (!session) redirect('/login');
-  if (!OPERATOR_ROLES.has(session.role)) redirect('/login');
+  // Guests (Meta reviewer) have no CRM access — send them to their Instagram demo.
+  if (!OPERATOR_ROLES.has(session.role)) redirect(session.role === 'guest' ? '/operator' : '/login');
   return children;
 }

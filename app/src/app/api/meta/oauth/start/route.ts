@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { buildAuthorizeUrl, oauthConfigured } from '@/lib/operator/meta_oauth';
-import { requireOperator } from '@/lib/operator/guard';
+import { requireIgDemo } from '@/lib/operator/guard';
 
 // GET /api/meta/oauth/start
 // Kicks off Business Login for Instagram. Operator-gated (only a signed-in
@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const gate = await requireOperator();
+  const gate = await requireIgDemo();
   if ('response' in gate) return gate.response;
 
   const cfg = oauthConfigured();

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { requireOperator } from '@/lib/operator/guard';
+import { requireIgDemo } from '@/lib/operator/guard';
 import type { IgProfile } from '@/lib/operator/meta_oauth';
 
 // GET /api/operator/ig/profile
@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const gate = await requireOperator();
+  const gate = await requireIgDemo();
   if ('response' in gate) return gate.response;
 
   const raw = (await cookies()).get('ig_profile')?.value;

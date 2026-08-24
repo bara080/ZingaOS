@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireOperator } from '@/lib/operator/guard';
+import { requireIgDemo } from '@/lib/operator/guard';
 import { createServiceClient } from '@/lib/supabase/admin';
 
 // POST /api/operator/ig/draft  { igsid }
@@ -67,7 +67,7 @@ function draftFor(intent: Intent): string {
 }
 
 export async function POST(req: Request) {
-  const gate = await requireOperator();
+  const gate = await requireIgDemo();
   if ('response' in gate) return gate.response;
 
   let body: { igsid?: string };
