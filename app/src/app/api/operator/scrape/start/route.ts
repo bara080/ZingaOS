@@ -48,5 +48,23 @@ export async function POST(req: Request) {
     /* ignore audit failure */
   }
 
-  return NextResponse.json({ runId: result.runId, datasetId: result.datasetId, number });
+  // Scrape-run history (best-effort — never block the scrape if the RPC is
+  // missing/unapplied). Records a 'running' row the finalize step later closes.
+  let scrapeRunId: number | null = null;
+  try {
+    const admin = createServiceClient();
+    const { data } = await admin.rpc('operator_scrape_run_start', {
+      p_actor: gate.session.email,
+      p_source: source,
+      p_query: query,
+      p_number: number,
+      p_run_id: result.runId,
+      p_dataset_id: result.datasetId,
+    });
+    scrapeRunId = data == null ? null : Number(data);
+  } catch {
+    /* ignore history failure — scrape must not break */
+  }
+
+  return NextResponse.json({ runId: result.runId, datasetId: result.datasetId, number, scrapeRunId });
 }

@@ -52,8 +52,35 @@ export type Campaign = {
 export type LogsResponse = { audit: string[]; runs?: unknown[] };
 
 export type ScrapeSource = 'google' | 'ig' | 'tiktok';
-export type ScrapeStartResponse = { runId: string; datasetId: string; number: number };
+export type ScrapeStartResponse = {
+  runId: string;
+  datasetId: string;
+  number: number;
+  scrapeRunId: number | null;
+};
 export type ScrapeStatusResponse = { status: string };
+
+// Mirrors ops.scrape_runs (see tools/sql/operator_scrape_runs.sql). Populated by
+// the scrape-run history RPCs; every count/timestamp is real or null.
+export type ScrapeRun = {
+  id: number;
+  actor: string | null;
+  source: string | null;
+  query: string | null;
+  number: number | null;
+  run_id: string | null;
+  dataset_id: string | null;
+  status: string;
+  found: number | null;
+  dropped: number | null;
+  inserted: number | null;
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number | null;
+};
+export type ScrapeRunsResponse = { runs: ScrapeRun[] };
+export type ScrapeFinishResponse = { ok: boolean };
 export type ScrapeItem = {
   business: string;
   owner: string;
@@ -117,10 +144,14 @@ export const operatorApi = {
     post<ScrapeStartResponse>('/api/operator/scrape/start', body),
   scrapeStatus: (runId: string) =>
     req<ScrapeStatusResponse>(`/api/operator/scrape/status?runId=${encodeURIComponent(runId)}`),
-  scrapeResults: (dataset: string, source: ScrapeSource) =>
+  scrapeResults: (dataset: string, source: ScrapeSource, scrapeRunId?: number | null) =>
     req<ScrapeResults>(
-      `/api/operator/scrape/results?dataset=${encodeURIComponent(dataset)}&source=${source}`,
+      `/api/operator/scrape/results?dataset=${encodeURIComponent(dataset)}&source=${source}` +
+        (scrapeRunId ? `&scrapeRunId=${scrapeRunId}` : ''),
     ),
+  scrapeRuns: (limit = 50) => req<ScrapeRunsResponse>(`/api/operator/scrape/runs?limit=${limit}`),
+  scrapeFinish: (body: { id: number; status: 'failed' | 'succeeded'; error?: string }) =>
+    post<ScrapeFinishResponse>('/api/operator/scrape/finish', body),
 
   sendBatch: (body: { src: string; limit: number }) =>
     post<SendBatchResponse>('/api/operator/send-batch', body),

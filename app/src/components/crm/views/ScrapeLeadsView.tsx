@@ -6,10 +6,16 @@
 // pipeline: POST /scrape/start → poll /scrape/status → GET /scrape/results
 // (which upserts into ops.leads). After results land we refetch leads so Step 3
 // shows the new rows. Unbuilt reference features render disabled with "Soon".
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { LayoutTemplate, Bookmark, Plus, Radar } from 'lucide-react';
-import { useScrapeResults, useScrapeStart, useScrapeStatus } from '@/components/operator/hooks';
+import {
+  useScrapeFinish,
+  useScrapeResults,
+  useScrapeStart,
+  useScrapeStatus,
+  operatorKeys,
+} from '@/components/operator/hooks';
 import type { ScrapeItem, ScrapeSource } from '@/components/operator/api';
 import { ConfirmModal } from '@/components/operator/ui';
 import { C } from '@/components/operator/theme';
@@ -20,6 +26,7 @@ import { TargetBuilder, composeQuery } from './scrape/TargetBuilder';
 import { Strategy } from './scrape/Strategy';
 import { ResultsTable } from './scrape/ResultsTable';
 import { LeadDrawer } from './scrape/LeadDrawer';
+import { History, type RerunSeed } from './scrape/History';
 
 const SOURCE_LABEL: Record<ScrapeSource, string> = {
   google: 'Google Maps',
@@ -27,6 +34,8 @@ const SOURCE_LABEL: Record<ScrapeSource, string> = {
   tiktok: 'TikTok',
 };
 const TERMINAL_FAIL = new Set(['FAILED', 'ABORTED', 'TIMED-OUT', 'TIMED_OUT']);
+const isScrapeSource = (s: unknown): s is ScrapeSource =>
+  s === 'ig' || s === 'google' || s === 'tiktok';
 type Phase = 'idle' | 'starting' | 'running' | 'fetching' | 'done' | 'error';
 
 const DEFAULTS = { categories: [] as string[], location: '', source: 'google' as ScrapeSource, number: 20 };
@@ -45,14 +54,20 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [datasetId, setDatasetId] = useState<string | null>(null);
+  // History row id for the in-flight run (null until start records it, or when
+  // the history RPC isn't applied yet). Used to finalize FAILED runs.
+  const [scrapeRunId, setScrapeRunId] = useState<number | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
   const [note, setNote] = useState<string | null>(null);
   const [openLead, setOpenLead] = useState<Lead | null>(null);
   // Only THIS run's rows are shown in Step 3 (the full list lives in the Leads tab).
   const [batch, setBatch] = useState<Lead[]>([]);
+  // Top of the view — scrolled into range when a run is re-run from history.
+  const topRef = useRef<HTMLDivElement | null>(null);
 
   const start = useScrapeStart();
   const results = useScrapeResults();
+  const finish = useScrapeFinish();
   const polling = phase === 'running' && !!runId;
   const { data: status } = useScrapeStatus(runId, polling);
   const running = phase === 'starting' || phase === 'running' || phase === 'fetching';
@@ -65,6 +80,18 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
     setNote(null);
     setPhase('idle');
     setBatch([]);
+    setScrapeRunId(null);
+  };
+
+  // Prefill Step 1 from a past run (Scrape History · Re-run) and scroll up.
+  // The flat stored query is placed in the location field (composeQuery joins
+  // categories + location, so an empty category list yields the exact query).
+  const rerunFrom = (seed: RerunSeed) => {
+    setCategories([]);
+    setLocation(seed.query);
+    if (isScrapeSource(seed.source)) setSource(seed.source);
+    setNumber(Math.max(1, Math.min(200, seed.number || 20)));
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const confirmRun = () => {
@@ -80,8 +107,11 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
         onSuccess: (d) => {
           setDatasetId(d.datasetId);
           setRunId(d.runId);
+          setScrapeRunId(d.scrapeRunId);
           setPhase('running');
           setNote('Scraping… this spends Apify credits and saves to the private leads DB.');
+          // A new 'running' row exists in history now — surface it immediately.
+          qc.invalidateQueries({ queryKey: operatorKeys.scrapeRuns });
         },
         onError: (e) => {
           setPhase('error');
@@ -101,7 +131,7 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
       setNote('Fetching + saving results…');
       if (datasetId) {
         results.mutate(
-          { dataset: datasetId, source },
+          { dataset: datasetId, source, scrapeRunId },
           {
             onSuccess: (d: { found: number; dropped: number; inserted: number; items: ScrapeItem[]; dbError: string | null }) => {
               setNote(
@@ -116,8 +146,12 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
               qc.invalidateQueries({ queryKey: ['crm', 'stats'] });
             },
             onError: (e) => {
-              setNote(`⚠ ${e instanceof Error ? e.message : 'results failed'}`);
+              const msg = e instanceof Error ? e.message : 'results failed';
+              setNote(`⚠ ${msg}`);
               setPhase('error');
+              // The run itself succeeded but fetching/saving results failed —
+              // record it as failed in history (best-effort).
+              if (scrapeRunId) finish.mutate({ id: scrapeRunId, status: 'failed', error: msg });
             },
           },
         );
@@ -126,6 +160,11 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
       setRunId(null);
       setNote(`⚠ run ${s.toLowerCase()}`);
       setPhase('error');
+      // Record the FAILED/aborted/timed-out run in history (best-effort).
+      if (scrapeRunId) {
+        finish.mutate({ id: scrapeRunId, status: 'failed', error: `run ${s.toLowerCase()}` });
+      }
+      qc.invalidateQueries({ queryKey: operatorKeys.scrapeRuns });
     } else {
       setNote(`Scraping… (${s.toLowerCase()})`);
     }
@@ -135,7 +174,7 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
   const noteColor = phase === 'error' ? C.red : phase === 'done' ? C.green : running ? C.teal : C.ink3;
 
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ width: '100%' }} ref={topRef}>
       {/* header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -191,6 +230,11 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
           right={note ? <span style={{ fontFamily: C.mono, fontSize: 11, color: noteColor }}>{note}</span> : undefined}
         />
         <ResultsTable rows={batch} busy={running} onOpenLead={setOpenLead} />
+      </div>
+
+      {/* SCRAPE HISTORY */}
+      <div style={{ marginTop: 24 }}>
+        <History onNavigate={onNavigate} onRerun={rerunFrom} />
       </div>
 
       <ConfirmModal

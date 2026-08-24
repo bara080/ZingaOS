@@ -23,6 +23,7 @@ export const operatorKeys = {
   igThread: (igsid: string | null) => ['operator', 'ig', 'thread', igsid] as const,
   scrapeStatus: (runId: string | null) => ['operator', 'scrape', 'status', runId] as const,
   scrapeResults: (dataset: string | null) => ['operator', 'scrape', 'results', dataset] as const,
+  scrapeRuns: ['operator', 'scrape', 'runs'] as const,
 };
 
 // ── Analytics tab ─────────────────────────────────────────────────────────
@@ -97,13 +98,38 @@ export function useScrapeStatus(runId: string | null, enabled: boolean) {
 export function useScrapeResults() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { dataset: string; source: ScrapeSource }) =>
-      operatorApi.scrapeResults(vars.dataset, vars.source),
+    mutationFn: (vars: { dataset: string; source: ScrapeSource; scrapeRunId?: number | null }) =>
+      operatorApi.scrapeResults(vars.dataset, vars.source, vars.scrapeRunId),
     onSuccess: () => {
       // New leads land in the DB → sources + campaign + analytics are stale.
       qc.invalidateQueries({ queryKey: operatorKeys.sources });
       qc.invalidateQueries({ queryKey: operatorKeys.analytics });
+      // A finished run also updates the scrape-run history feed.
+      qc.invalidateQueries({ queryKey: operatorKeys.scrapeRuns });
     },
+  });
+}
+
+// Recent scrape-run history (most recent first). Never retries hard — the route
+// degrades to an empty list if the history RPC isn't applied yet.
+export function useScrapeRuns(enabled = true) {
+  return useQuery({
+    queryKey: operatorKeys.scrapeRuns,
+    queryFn: () => operatorApi.scrapeRuns(),
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? 15_000 : false,
+  });
+}
+
+// Marks a run terminal (used by the client to record FAILED/aborted runs).
+// Invalidates the history feed on completion so the row flips to its final state.
+export function useScrapeFinish() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: number; status: 'failed' | 'succeeded'; error?: string }) =>
+      operatorApi.scrapeFinish(vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: operatorKeys.scrapeRuns }),
   });
 }
 

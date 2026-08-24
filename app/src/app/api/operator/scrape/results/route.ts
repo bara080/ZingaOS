@@ -22,6 +22,8 @@ export async function GET(req: Request) {
   if (!isScrapeSource(source)) {
     return NextResponse.json({ error: 'unknown source' }, { status: 400 });
   }
+  const scrapeRunIdRaw = searchParams.get('scrapeRunId');
+  const scrapeRunId = scrapeRunIdRaw ? Number(scrapeRunIdRaw) : null;
 
   const result = await apifyItems(dataset, source);
   if ('error' in result) return NextResponse.json({ error: result.error }, { status: 502 });
@@ -58,6 +60,24 @@ export async function GET(req: Request) {
       });
     } catch (e) {
       dbError = e instanceof Error ? e.message : 'upsert failed';
+    }
+  }
+
+  // Finalize the scrape-run history row (best-effort — never block the results
+  // response if the RPC is missing/unapplied or scrapeRunId wasn't supplied).
+  if (scrapeRunId && Number.isFinite(scrapeRunId)) {
+    try {
+      const admin = createServiceClient();
+      await admin.rpc('operator_scrape_run_finish', {
+        p_id: scrapeRunId,
+        p_status: 'succeeded',
+        p_found: result.found,
+        p_dropped: result.dropped,
+        p_inserted: inserted,
+        p_error: dbError,
+      });
+    } catch {
+      /* ignore history failure — results must not break */
     }
   }
 
