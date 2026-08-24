@@ -11,6 +11,7 @@ import { DEFAULT_VIEW, type CrmView } from './nav';
 import { DashboardView } from './views/DashboardView';
 import { DmQueueView } from './views/DmQueueView';
 import { LeadsView } from './views/LeadsView';
+import { ScrapeLeadsView } from './views/ScrapeLeadsView';
 import { InboxView } from './views/InboxView';
 import { CampaignsView } from './views/CampaignsView';
 import { AgentsView } from './views/AgentsView';
@@ -22,6 +23,7 @@ const VIEWS: Record<CrmView, React.ComponentType<{ onNavigate?: (v: CrmView) => 
   dashboard: DashboardView,
   'dm-queue': DmQueueView,
   leads: LeadsView,
+  scrape: ScrapeLeadsView,
   inbox: InboxView,
   campaigns: CampaignsView,
   agents: AgentsView,

@@ -5,6 +5,7 @@ import {
   Home,
   Send,
   Users,
+  Radar,
   Inbox,
   Megaphone,
   Bot,
@@ -17,6 +18,7 @@ export type CrmView =
   | 'dashboard'
   | 'dm-queue'
   | 'leads'
+  | 'scrape'
   | 'inbox'
   | 'campaigns'
   | 'agents'
@@ -28,6 +30,7 @@ export const CRM_NAV: { key: CrmView; label: string; icon: LucideIcon }[] = [
   { key: 'dashboard', label: 'Home', icon: Home },
   { key: 'dm-queue', label: 'DM Queue', icon: Send },
   { key: 'leads', label: 'Leads', icon: Users },
+  { key: 'scrape', label: 'Scrape Leads', icon: Radar },
   { key: 'inbox', label: 'Inbox', icon: Inbox },
   { key: 'campaigns', label: 'Campaigns', icon: Megaphone },
   { key: 'agents', label: 'AI Agents', icon: Bot },

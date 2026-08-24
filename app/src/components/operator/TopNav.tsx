@@ -9,9 +9,8 @@ import { ProfileMenu } from './ProfileMenu';
 
 export type ConsoleDest = 'graph' | 'tree' | 'neural' | 'operator' | 'crm';
 
-// `standalone` links live in their own zone on the RIGHT of the nav (separated
-// from the console group by the flex spacer) — CRM is its own product surface,
-// not part of the OS internals.
+// `standalone` links are set off from the console group by a single "|" divider
+// — CRM is its own product surface, not part of the OS internals.
 const LINKS: { key: ConsoleDest; label: string; href: string; standalone?: boolean }[] = [
   { key: 'graph', label: 'Knowledge Graph', href: '/console/graph.html' },
   { key: 'tree', label: 'System Tree', href: '/console/tree.html' },
@@ -19,9 +18,6 @@ const LINKS: { key: ConsoleDest; label: string; href: string; standalone?: boole
   { key: 'operator', label: 'Operator', href: '/operator' },
   { key: 'crm', label: 'CRM', href: '/crm', standalone: true },
 ];
-
-const CONSOLE_LINKS = LINKS.filter((l) => !l.standalone);
-const STANDALONE_LINKS = LINKS.filter((l) => l.standalone);
 
 export function TopNav({ current, note }: { current: ConsoleDest; note?: string }) {
   return (
@@ -35,9 +31,15 @@ export function TopNav({ current, note }: { current: ConsoleDest; note?: string 
         fontFamily: C.mono,
         background: 'rgba(10,12,16,0.7)',
         backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
         position: 'sticky',
         top: 0,
         zIndex: 20,
+        // Pin to its own GPU layer — stops the sticky + backdrop-blur header from
+        // shimmering/"shaking" against scrolling content (subpixel repaint jitter).
+        transform: 'translateZ(0)',
+        willChange: 'transform',
+        backfaceVisibility: 'hidden',
       }}
     >
       <span
@@ -62,54 +64,39 @@ export function TopNav({ current, note }: { current: ConsoleDest; note?: string 
         />
         ZINGA OS
       </span>
-      {/* Console group (OS internals) — left side */}
-      {CONSOLE_LINKS.map((l) => {
+      {LINKS.map((l) => {
         const cur = l.key === current;
         return (
-          <a
-            key={l.key}
-            href={l.href}
-            style={{
-              fontSize: 11.5,
-              color: cur ? C.bg : C.ink2,
-              textDecoration: 'none',
-              padding: '6px 10px',
-              borderRadius: 7,
-              background: cur ? C.teal : 'transparent',
-              fontWeight: cur ? 600 : 400,
-            }}
-          >
-            {l.label}
-          </a>
+          <span key={l.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {l.standalone && (
+              <span
+                aria-hidden
+                style={{
+                  width: 1,
+                  height: 18,
+                  background: C.line,
+                  margin: '0 8px',
+                }}
+              />
+            )}
+            <a
+              href={l.href}
+              style={{
+                fontSize: 11.5,
+                color: cur ? C.bg : C.ink2,
+                textDecoration: 'none',
+                padding: '6px 10px',
+                borderRadius: 7,
+                background: cur ? C.teal : 'transparent',
+                fontWeight: cur ? 600 : 400,
+              }}
+            >
+              {l.label}
+            </a>
+          </span>
         );
       })}
-
       <span style={{ flex: 1 }} />
-
-      {/* Standalone products (e.g. CRM) — own zone on the right, styled as a chip */}
-      {STANDALONE_LINKS.map((l) => {
-        const cur = l.key === current;
-        return (
-          <a
-            key={l.key}
-            href={l.href}
-            style={{
-              fontSize: 11.5,
-              color: cur ? C.bg : C.ink,
-              textDecoration: 'none',
-              padding: '6px 12px',
-              borderRadius: 7,
-              border: `1px solid ${cur ? C.teal : C.line}`,
-              background: cur ? C.teal : 'transparent',
-              fontWeight: 600,
-              marginRight: 12,
-            }}
-          >
-            {l.label}
-          </a>
-        );
-      })}
-
       <span
         style={{
           color: C.ink3,
