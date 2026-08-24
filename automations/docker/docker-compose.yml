@@ -28,6 +28,7 @@ services:
       - N8N_RUNNERS_ENABLED=true
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
       - N8N_PROXY_HOPS=1                    # trust Caddy as the TLS-terminating proxy
+      - N8N_SECURE_COOKIE=${N8N_SECURE_COOKIE:-true}  # set false in .env for http/SSH-tunnel access; true behind Caddy HTTPS
     volumes:
       - n8n_data:/home/node/.n8n           # workflows, credentials, encryption key
 
