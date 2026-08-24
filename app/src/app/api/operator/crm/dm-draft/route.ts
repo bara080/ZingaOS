@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireIgDemo } from '@/lib/operator/guard';
-import { openaiConfigured, generate, ZINGA_VOICE } from '@/lib/openai';
+import { llmConfigured, generate, ZINGA_VOICE } from '@/lib/llm';
 
 // POST /api/operator/crm/dm-draft  { name?, business?, category?, borough? }
 // Generates a first-touch cold intro DM for a lead in Zinga's voice (gpt-4o).
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   const category = (b.category || '').toString().trim();
   const borough = (b.borough || '').toString().trim();
 
-  if (openaiConfigured()) {
+  if (llmConfigured()) {
     try {
       const system =
         ZINGA_VOICE +
@@ -43,10 +43,10 @@ export async function POST(req: Request) {
         'value (free listing, fills mid-week gaps, direct bookings), and end with a ' +
         'light question. No signature. Output ONLY the message text.';
       const user = `Provider: ${name}${category ? ` · ${category}` : ''}${borough ? ` · ${borough}` : ''}. Write the intro DM.`;
-      const draft = await generate(system, user);
-      return NextResponse.json({ draft, source: 'openai' });
+      const { text, provider } = await generate(system, user);
+      return NextResponse.json({ draft: text, source: provider });
     } catch (e) {
-      console.warn('[crm/dm-draft] OpenAI failed, using template:', e instanceof Error ? e.message : e);
+      console.warn('[crm/dm-draft] LLM failed, using template:', e instanceof Error ? e.message : e);
     }
   }
 

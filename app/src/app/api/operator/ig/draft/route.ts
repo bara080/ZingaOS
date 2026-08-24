@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireIgDemo } from '@/lib/operator/guard';
 import { createServiceClient } from '@/lib/supabase/admin';
-import { openaiConfigured, generate, ZINGA_VOICE } from '@/lib/openai';
+import { llmConfigured, generate, ZINGA_VOICE } from '@/lib/llm';
 
 // POST /api/operator/ig/draft  { igsid }
 // Auth-gated. Generates a Zinga-voice reply DRAFT for a conversation. This ONLY
@@ -102,9 +102,10 @@ export async function POST(req: Request) {
 
   const intent = lastInbound ? classify(lastInbound) : 'generic';
 
-  // Prefer a real LLM draft (gpt-4o) using the recent thread as context; fall
-  // back to the deterministic template if no key is set or the call fails.
-  if (openaiConfigured()) {
+  // Prefer a real LLM draft (OpenAI gpt-4o, falling back to Claude) using the
+  // recent thread as context; fall back to the deterministic template if no
+  // provider is configured or both error.
+  if (llmConfigured()) {
     try {
       const transcript = messages
         .slice(-10)
@@ -117,10 +118,10 @@ export async function POST(req: Request) {
         '(this is mid-conversation). Move the conversation toward getting the ' +
         'provider listed on Zinga (free). Ask one simple question when it helps.';
       const user = `Conversation so far:\n${transcript || '(no prior messages)'}\n\nWrite Zinga's next reply.`;
-      const draft = await generate(system, user);
-      return NextResponse.json({ draft, intent, source: 'openai' });
+      const { text, provider } = await generate(system, user);
+      return NextResponse.json({ draft: text, intent, source: provider });
     } catch (e) {
-      console.warn('[ig/draft] OpenAI failed, using template:', e instanceof Error ? e.message : e);
+      console.warn('[ig/draft] LLM failed, using template:', e instanceof Error ? e.message : e);
     }
   }
 
