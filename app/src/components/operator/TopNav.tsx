@@ -5,6 +5,7 @@
 // the active destination. The static console pages link here via plain hrefs;
 // the operator uses it as the React header.
 import { C } from './theme';
+import { ProfileMenu } from './ProfileMenu';
 
 export type ConsoleDest = 'graph' | 'tree' | 'neural' | 'operator' | 'crm';
 
@@ -97,6 +98,7 @@ export function TopNav({ current, note }: { current: ConsoleDest; note?: string 
           display: 'flex',
           gap: 7,
           alignItems: 'center',
+          marginRight: 12,
         }}
       >
         <span
@@ -110,6 +112,7 @@ export function TopNav({ current, note }: { current: ConsoleDest; note?: string 
         />
         {note ?? 'authenticated · sends live from the server'}
       </span>
+      <ProfileMenu />
     </div>
   );
 }
