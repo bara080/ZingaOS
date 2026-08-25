@@ -162,6 +162,10 @@ export const operatorApi = {
     post<ScrapeFinishResponse>('/api/operator/scrape/finish', body),
   // Server-side self-heal for runs orphaned as 'running' (tab closed mid-run).
   scrapeReconcile: () => post<ScrapeReconcileResponse>('/api/operator/scrape/reconcile', {}),
+  // Scrape History ⋮ menu — delete a run record / pause (abort) a running run.
+  scrapeRunDelete: (id: number) => post<{ ok: boolean }>('/api/operator/scrape/run-delete', { id }),
+  scrapeRunAbort: (body: { id: number; runId?: string | null }) =>
+    post<{ ok: boolean }>('/api/operator/scrape/run-abort', body),
 
   sendBatch: (body: { src: string; limit: number }) =>
     post<SendBatchResponse>('/api/operator/send-batch', body),

@@ -152,6 +152,19 @@ export async function apifyStatus(
   }
 }
 
+// Abort a running Apify actor run (Scrape History ⋮ → Pause). Best-effort.
+export async function apifyAbort(runId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!token()) return { ok: false, error: 'APIFY_TOKEN not set' };
+  if (!runId) return { ok: false, error: 'missing runId' };
+  const url = `https://api.apify.com/v2/actor-runs/${encodeURIComponent(runId)}/abort?token=${token()}`;
+  try {
+    await apifyReq('POST', url);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Apify abort failed' };
+  }
+}
+
 export type CleanRow = {
   business: string;
   owner: string;

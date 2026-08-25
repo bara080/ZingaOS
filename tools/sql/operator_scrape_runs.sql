@@ -117,6 +117,23 @@ as $$
   select * from ops.scrape_runs where status = 'running' order by started_at asc limit 50;
 $$;
 
+-- ── delete a run record (Scrape History ⋮ menu) ─────────────────────────────
+-- Removes the run row only; leads aren't attributable 1:1 to a run (dedup, no
+-- run_id on leads) so they stay in ops.leads.
+create or replace function public.operator_scrape_run_delete(p_id bigint)
+returns void
+language sql
+volatile
+security definer
+set search_path = ops, pg_temp
+as $$
+  delete from ops.scrape_runs where id = p_id;
+$$;
+revoke all on function public.operator_scrape_run_delete(bigint)
+  from public, anon, authenticated;
+grant execute on function public.operator_scrape_run_delete(bigint)
+  to service_role;
+
 -- ── lock down: service_role only ────────────────────────────────────────────
 revoke all on function public.operator_scrape_runs_running()
   from public, anon, authenticated;

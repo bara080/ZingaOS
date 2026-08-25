@@ -5,8 +5,9 @@
 // /api/operator/scrape/runs (useScrapeRuns). Degrades gracefully: if the
 // history RPC isn't applied yet the route returns an empty list and this shows
 // the empty state rather than crashing. Dark palette only (C). No invented data.
-import { ExternalLink, Eye, RotateCw, History as HistoryIcon } from 'lucide-react';
-import { useScrapeRuns } from '@/components/operator/hooks';
+import { useEffect, useRef, useState } from 'react';
+import { ExternalLink, Eye, RotateCw, History as HistoryIcon, MoreVertical, Trash2, Pause } from 'lucide-react';
+import { useScrapeRuns, useScrapeRunDelete, useScrapeRunAbort } from '@/components/operator/hooks';
 import type { ScrapeRun } from '@/components/operator/api';
 import { C } from '@/components/operator/theme';
 import type { CrmView } from '../../nav';
@@ -65,6 +66,8 @@ export function History({
   syncing?: boolean;
 }) {
   const { data, isLoading, isError } = useScrapeRuns();
+  const del = useScrapeRunDelete();
+  const abort = useScrapeRunAbort();
   const runs = data?.runs ?? [];
   const pager = usePager(runs, 10, runs.length);
   const hasStuck = runs.some((r) => (r.status || '').toLowerCase() === 'running');
@@ -207,6 +210,12 @@ export function History({
                               <RotateCw size={12} /> Re-run
                             </button>
                           )}
+                          <RowMenu
+                            run={r}
+                            busy={del.isPending || abort.isPending}
+                            onPause={() => abort.mutate({ id: r.id, runId: r.run_id })}
+                            onDelete={() => del.mutate(r.id)}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -219,6 +228,164 @@ export function History({
       </div>
       <Pager p={pager} noun="runs" />
     </div>
+  );
+}
+
+// ⋮ more-options menu per run — Pause (abort, running only) + Delete (with an
+// inline confirm). Renders as a fixed-position dropdown anchored to the button so
+// the table's overflow never clips it. Closes on outside-click / Escape.
+function RowMenu({
+  run,
+  busy,
+  onPause,
+  onDelete,
+}: {
+  run: ScrapeRun;
+  busy: boolean;
+  onPause: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const running = (run.status || '').toLowerCase() === 'running';
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    const t = setTimeout(() => document.addEventListener('mousedown', close), 0);
+    document.addEventListener('keydown', key);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', key);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    }
+    setConfirmDel(false);
+    setOpen((o) => !o);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={toggle}
+        title="More options"
+        aria-label="More options"
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          width: 28,
+          height: 28,
+          borderRadius: 7,
+          border: `1px solid ${open ? C.teal : C.line}`,
+          background: open ? 'rgba(47,217,201,0.10)' : C.panel2,
+          color: open ? C.teal : C.ink2,
+          cursor: 'pointer',
+        }}
+      >
+        <MoreVertical size={14} />
+      </button>
+      {open && pos && (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            right: pos.right,
+            zIndex: 70,
+            width: 168,
+            background: '#0e1218',
+            border: `1px solid ${C.line}`,
+            borderRadius: 10,
+            padding: 5,
+            boxShadow: '0 14px 36px rgba(0,0,0,0.5)',
+          }}
+        >
+          <MenuItem
+            icon={Pause}
+            label="Pause"
+            disabled={!running || busy}
+            title={running ? 'Abort this running scrape' : 'Only a running scrape can be paused'}
+            onClick={() => {
+              onPause();
+              setOpen(false);
+            }}
+          />
+          {!confirmDel ? (
+            <MenuItem icon={Trash2} label="Delete" danger onClick={() => setConfirmDel(true)} />
+          ) : (
+            <MenuItem
+              icon={Trash2}
+              label={busy ? 'Deleting…' : 'Confirm delete'}
+              danger
+              disabled={busy}
+              onClick={() => {
+                onDelete();
+                setOpen(false);
+              }}
+            />
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function MenuItem({
+  icon: Icon,
+  label,
+  onClick,
+  danger,
+  disabled,
+  title,
+}: {
+  icon: typeof Pause;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+  title?: string;
+}) {
+  const color = disabled ? C.ink3 : danger ? C.red : C.ink2;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 9,
+        width: '100%',
+        textAlign: 'left',
+        padding: '8px 10px',
+        borderRadius: 7,
+        border: '1px solid transparent',
+        background: 'transparent',
+        color,
+        fontFamily: C.sans,
+        fontSize: 12.5,
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) e.currentTarget.style.background = danger ? 'rgba(224,101,90,0.10)' : 'rgba(255,255,255,0.05)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent';
+      }}
+    >
+      <Icon size={13} strokeWidth={2} /> {label}
+    </button>
   );
 }
 

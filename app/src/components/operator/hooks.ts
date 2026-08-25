@@ -133,6 +133,24 @@ export function useScrapeFinish() {
   });
 }
 
+// Scrape History ⋮ menu — delete a run record. Refreshes the history feed.
+export function useScrapeRunDelete() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => operatorApi.scrapeRunDelete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: operatorKeys.scrapeRuns }),
+  });
+}
+
+// Scrape History ⋮ menu — pause (abort) a running run, then mark it failed.
+export function useScrapeRunAbort() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: number; runId?: string | null }) => operatorApi.scrapeRunAbort(vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: operatorKeys.scrapeRuns }),
+  });
+}
+
 // Server-side reconcile of orphaned 'running' runs (tab closed mid-run). Refreshes
 // the history feed + leads/stats afterwards so healed runs surface with results.
 export function useScrapeReconcile() {
