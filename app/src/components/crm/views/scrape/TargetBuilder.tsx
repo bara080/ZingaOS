@@ -138,6 +138,20 @@ export function TargetBuilder({
           <div style={{ fontFamily: C.mono, fontSize: 9.5, color: C.ink3, marginTop: 6, lineHeight: 1.5 }}>
             Location text is appended to the query.
           </div>
+          <div
+            style={{
+              fontFamily: C.mono,
+              fontSize: 9.5,
+              color: C.amber,
+              marginTop: 8,
+              lineHeight: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <MapPin size={11} /> US-only — leave blank and we&apos;ll ask (defaults to USA).
+          </div>
         </Panel>
 
         {/* Sources */}

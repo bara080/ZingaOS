@@ -22,7 +22,7 @@ import { ConfirmModal } from '@/components/operator/ui';
 import { C } from '@/components/operator/theme';
 import type { Lead } from '../api';
 import type { CrmView } from '../nav';
-import { StepHeader, SoonTag } from './scrape/ui';
+import { StepHeader, SoonTag, field } from './scrape/ui';
 import { TargetBuilder, composeQuery } from './scrape/TargetBuilder';
 import { Strategy } from './scrape/Strategy';
 import { ResultsTable } from './scrape/ResultsTable';
@@ -53,6 +53,10 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
 
   // ── scrape lifecycle ───────────────────────────────────────────────────────
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // USA-only guardrail: never scrape without a location (an empty query searches
+  // Apify worldwide). If it's blank, prompt first — defaulting to "USA".
+  const [locPromptOpen, setLocPromptOpen] = useState(false);
+  const [locDraft, setLocDraft] = useState('USA');
   const [runId, setRunId] = useState<string | null>(null);
   const [datasetId, setDatasetId] = useState<string | null>(null);
   // History row id for the in-flight run (null until start records it, or when
@@ -120,6 +124,26 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
     if (isScrapeSource(seed.source)) setSource(seed.source);
     setNumber(Math.max(1, Math.min(200, seed.number || 20)));
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // Start pressed: enforce the USA-only location guardrail before the spend
+  // confirm. No location → prompt for one (default USA); otherwise go straight
+  // to the scrape confirm.
+  const requestStart = () => {
+    if (!location.trim()) {
+      setLocDraft('USA');
+      setLocPromptOpen(true);
+      return;
+    }
+    setConfirmOpen(true);
+  };
+
+  // Operator supplied (or accepted the default) location → apply it and proceed
+  // to the spend confirm. The composed query now carries the location.
+  const confirmLocation = () => {
+    setLocation(locDraft.trim() || 'USA');
+    setLocPromptOpen(false);
+    setConfirmOpen(true);
   };
 
   const confirmRun = () => {
@@ -238,7 +262,7 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
           setSource={setSource}
           number={number}
           setNumber={setNumber}
-          onStart={() => setConfirmOpen(true)}
+          onStart={requestStart}
           running={running}
         />
       </div>
@@ -278,6 +302,86 @@ export function ScrapeLeadsView({ onNavigate }: { onNavigate?: (v: CrmView) => v
         onConfirm={confirmRun}
         onCancel={() => setConfirmOpen(false)}
       />
+
+      {/* USA-only location guardrail — shown when Start is pressed with no location */}
+      {locPromptOpen && (
+        <div
+          onClick={() => setLocPromptOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 60,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(440px, 92vw)',
+              background: '#0e1218',
+              border: `1px solid ${C.line}`,
+              borderRadius: 14,
+              padding: 20,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            }}
+          >
+            <div style={{ fontFamily: C.sans, fontSize: 15.5, fontWeight: 600, color: C.ink, marginBottom: 6 }}>
+              Add a location
+            </div>
+            <div style={{ fontFamily: C.mono, fontSize: 11, color: C.ink3, lineHeight: 1.6, marginBottom: 14 }}>
+              No location set. Without one, Apify searches <b style={{ color: C.amber }}>worldwide</b> —
+              but Zinga only operates in the <b style={{ color: C.ink2 }}>USA</b>. Enter a city/region,
+              or keep the <b style={{ color: C.ink2 }}>USA</b> default.
+            </div>
+            <input
+              autoFocus
+              value={locDraft}
+              onChange={(e) => setLocDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmLocation();
+                if (e.key === 'Escape') setLocPromptOpen(false);
+              }}
+              placeholder="e.g. Brooklyn, NY, USA"
+              style={{ ...field, width: '100%', marginBottom: 16 }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                onClick={() => setLocPromptOpen(false)}
+                style={{
+                  fontFamily: C.mono,
+                  fontSize: 11.5,
+                  padding: '8px 14px',
+                  borderRadius: 9,
+                  border: `1px solid ${C.line}`,
+                  background: 'transparent',
+                  color: C.ink2,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLocation}
+                style={{
+                  fontFamily: C.mono,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  padding: '8px 14px',
+                  borderRadius: 9,
+                  border: `1px solid ${C.teal}`,
+                  background: 'rgba(47,217,201,0.10)',
+                  color: C.teal,
+                  cursor: 'pointer',
+                }}
+              >
+                Use “{locDraft.trim() || 'USA'}”
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <LeadDrawer lead={openLead} onClose={() => setOpenLead(null)} onNavigate={onNavigate} />
     </div>

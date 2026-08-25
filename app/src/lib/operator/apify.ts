@@ -12,9 +12,40 @@ const ACTORS: Record<string, string> = {
   tiktok: 'clockworks~tiktok-scraper',
 };
 
-// Drop obviously-out-of-market profiles by bio (matches app.py _DROP_RE).
-const DROP_RE =
-  /(london|uk|toronto|canada|dubai|paris|seoul|korea|sydney|berlin|mumbai|india|lagos|madrid|milan)/i;
+// Drop obviously-out-of-market (non-USA) profiles by bio. Zinga is USA-only, so
+// a bio naming a foreign city/country is a strong out-of-market signal. Word
+// boundaries (\b) avoid false hits like "uk" inside "makeup". This is a backstop —
+// the primary guardrail is requiring a USA location in the query (empty → the UI
+// prompts, defaulting to "USA").
+const DROP_TERMS = [
+  // UK / Ireland
+  'london', 'uk', 'united kingdom', 'england', 'manchester', 'birmingham',
+  'scotland', 'edinburgh', 'glasgow', 'wales', 'ireland', 'dublin',
+  // Europe
+  'paris', 'france', 'berlin', 'germany', 'deutschland', 'madrid', 'spain',
+  'espana', 'barcelona', 'milan', 'milano', 'italy', 'italia', 'rome', 'roma',
+  'lisbon', 'portugal', 'amsterdam', 'netherlands', 'brussels', 'belgium',
+  'zurich', 'switzerland', 'vienna', 'austria', 'stockholm', 'sweden', 'oslo',
+  'norway', 'copenhagen', 'denmark', 'helsinki', 'finland', 'athens', 'greece',
+  'warsaw', 'poland', 'moscow', 'russia', 'ukraine', 'istanbul', 'turkey', 'turkiye',
+  // Middle East / Africa
+  'dubai', 'abu dhabi', 'uae', 'riyadh', 'jeddah', 'saudi', 'doha', 'qatar',
+  'kuwait', 'bahrain', 'oman', 'cairo', 'egypt', 'morocco', 'lagos', 'nigeria',
+  'nairobi', 'kenya', 'accra', 'ghana', 'johannesburg', 'cape town', 'south africa',
+  // Asia / Oceania
+  'mumbai', 'delhi', 'india', 'bangalore', 'karachi', 'lahore', 'pakistan',
+  'dhaka', 'bangladesh', 'colombo', 'kathmandu', 'seoul', 'korea', 'tokyo',
+  'osaka', 'japan', 'beijing', 'shanghai', 'china', 'hong kong', 'taipei', 'taiwan',
+  'bangkok', 'thailand', 'jakarta', 'bali', 'indonesia', 'kuala lumpur', 'malaysia',
+  'singapore', 'manila', 'philippines', 'hanoi', 'vietnam', 'sydney', 'melbourne',
+  'brisbane', 'perth', 'australia', 'auckland', 'new zealand',
+  // North America (non-US)
+  'toronto', 'vancouver', 'montreal', 'canada', 'mexico', 'mexico city',
+  // South America
+  'brazil', 'brasil', 'sao paulo', 'rio de janeiro', 'bogota', 'colombia',
+  'buenos aires', 'argentina', 'santiago', 'chile', 'lima', 'peru',
+];
+const DROP_RE = new RegExp('\\b(' + DROP_TERMS.join('|') + ')\\b', 'i');
 
 export type ScrapeSource = 'ig' | 'google' | 'tiktok';
 
