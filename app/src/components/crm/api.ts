@@ -218,7 +218,14 @@ export const crmApi = {
     }),
 
   // First-touch intro DM draft (gpt-4o, template fallback server-side).
-  dmDraft: (body: { name?: string; business?: string; category?: string; borough?: string }) =>
+  dmDraft: (body: {
+    name?: string;
+    business?: string;
+    category?: string;
+    borough?: string;
+    instruction?: string;
+    base?: string;
+  }) =>
     req<{ draft: string; source: string }>('/api/operator/crm/dm-draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

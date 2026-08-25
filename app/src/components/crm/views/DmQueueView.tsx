@@ -58,6 +58,8 @@ export function DmQueueView() {
 
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customText, setCustomText] = useState('');
   const [sendMode, setSendMode] = useState<'manual' | 'api' | 'autopilot'>('manual');
   const [flash, setFlash] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<'agent' | 'conversation' | 'profile' | 'activity'>('agent');
@@ -67,10 +69,20 @@ export function DmQueueView() {
   const activeAgent = (agentsQ.data?.agents ?? []).find((a) => a.enabled) ?? null;
   const dmDraft = useDmDraft();
 
-  const regenerate = () => {
-    if (!lead) return;
+  // Regenerate via the LLM. With no instruction → a fresh first-touch draft. With
+  // an instruction (Shorter / Casual / Formal / a typed Custom steer) → the LLM
+  // rewrites the CURRENT message per that instruction. Dynamic, not string hacks.
+  const regenerate = (instruction?: string) => {
+    if (!lead || dmDraft.isPending) return;
     dmDraft.mutate(
-      { name: leadName(lead), business: lead.business ?? undefined, category: lead.category ?? undefined, borough: lead.borough ?? undefined },
+      {
+        name: leadName(lead),
+        business: lead.business ?? undefined,
+        category: lead.category ?? undefined,
+        borough: lead.borough ?? undefined,
+        instruction,
+        base: instruction ? message : undefined,
+      },
       { onSuccess: (r) => setMessage(r.draft) },
     );
   };
@@ -280,12 +292,45 @@ export function DmQueueView() {
                 onChange={(e) => setMessage(e.target.value)}
                 style={{ ...fieldStyle, width: '100%', minHeight: 110, resize: 'vertical', lineHeight: 1.55, marginBottom: 8 }}
               />
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-                <MsgChip label={dmDraft.isPending ? 'Generating…' : '✨ Regenerate'} onClick={regenerate} />
-                <MsgChip label="Shorter" onClick={() => setMessage((m) => m.split('. ')[0].replace(/\.?$/, '.'))} />
-                <MsgChip label="Casual" onClick={() => setMessage((m) => (m.startsWith('Hey') ? m : `Hey 👋 ${m}`))} />
-                <MsgChip label="Formal" onClick={() => setMessage((m) => m.replace(/^Hey!?\s*👋?\s*/i, 'Hello, '))} />
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: customOpen ? 8 : 14 }}>
+                <MsgChip label={dmDraft.isPending ? 'Generating…' : '✨ Regenerate'} onClick={() => regenerate()} disabled={dmDraft.isPending} />
+                <MsgChip label="Shorter" onClick={() => regenerate('Make it noticeably shorter and more concise — 1–2 short sentences.')} disabled={dmDraft.isPending} />
+                <MsgChip label="Casual" onClick={() => regenerate('Make the tone more casual, warm and friendly.')} disabled={dmDraft.isPending} />
+                <MsgChip label="Formal" onClick={() => regenerate('Make the tone more formal and professional.')} disabled={dmDraft.isPending} />
+                <MsgChip label={customOpen ? '✕ Custom' : '✎ Custom'} onClick={() => setCustomOpen((o) => !o)} active={customOpen} />
               </div>
+              {customOpen && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                  <input
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && customText.trim() && !dmDraft.isPending) regenerate(customText.trim());
+                    }}
+                    placeholder="Tell the agent what you want — e.g. “mention weekend slots, keep it 2 lines”"
+                    style={{ ...fieldStyle, flex: 1, minWidth: 0 }}
+                  />
+                  <button
+                    onClick={() => customText.trim() && regenerate(customText.trim())}
+                    disabled={dmDraft.isPending || !customText.trim()}
+                    style={{
+                      fontFamily: C.mono,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: '0 14px',
+                      borderRadius: 8,
+                      border: `1px solid ${C.teal}`,
+                      background: 'rgba(47,217,201,0.10)',
+                      color: C.teal,
+                      whiteSpace: 'nowrap',
+                      cursor: dmDraft.isPending || !customText.trim() ? 'default' : 'pointer',
+                      opacity: dmDraft.isPending || !customText.trim() ? 0.6 : 1,
+                    }}
+                  >
+                    {dmDraft.isPending ? 'Generating…' : '✨ Rewrite'}
+                  </button>
+                </div>
+              )}
 
               <label style={eyebrow}>Send method</label>
               <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
@@ -535,19 +580,31 @@ function ProfRow({ k, v, accent }: { k: string; v: string | null; accent?: strin
   );
 }
 
-function MsgChip({ label, onClick }: { label: string; onClick: () => void }) {
+function MsgChip({
+  label,
+  onClick,
+  disabled,
+  active,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
+}) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         fontFamily: C.mono,
         fontSize: 10.5,
         padding: '5px 10px',
         borderRadius: 7,
-        border: `1px solid ${C.line}`,
-        background: C.panel2,
-        color: C.ink2,
-        cursor: 'pointer',
+        border: `1px solid ${active ? C.teal : C.line}`,
+        background: active ? 'rgba(47,217,201,0.10)' : C.panel2,
+        color: disabled ? C.ink3 : active ? C.teal : C.ink2,
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
       }}
     >
       {label}

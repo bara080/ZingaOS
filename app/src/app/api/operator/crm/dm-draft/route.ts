@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 import { requireIgDemo } from '@/lib/operator/guard';
 import { llmConfigured, generate, ZINGA_VOICE, ZINGA_LINKS, ZINGA_LINKS_LINE } from '@/lib/llm';
 
-// POST /api/operator/crm/dm-draft  { name?, business?, category?, borough? }
-// Generates a first-touch cold intro DM for a lead in Zinga's voice (gpt-4o).
-// Falls back to a deterministic template if no key / the call fails. Draft only.
+// POST /api/operator/crm/dm-draft  { name?, business?, category?, borough?, instruction?, base? }
+// Generates (or, with `instruction`+`base`, REWRITES) a first-touch cold intro DM
+// in Zinga's voice. `instruction` is a free-text operator steer ("shorter",
+// "more casual", or anything typed via the DM Queue "Custom" chip); `base` is the
+// current draft to rewrite. Falls back to a deterministic template. Draft only.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +32,14 @@ export async function POST(req: Request) {
   const gate = await requireIgDemo();
   if ('response' in gate) return gate.response;
 
-  let b: { name?: string; business?: string; category?: string; borough?: string };
+  let b: {
+    name?: string;
+    business?: string;
+    category?: string;
+    borough?: string;
+    instruction?: string;
+    base?: string;
+  };
   try {
     b = await req.json();
   } catch {
@@ -39,18 +48,42 @@ export async function POST(req: Request) {
   const name = (b.business || b.name || 'your business').toString().trim();
   const category = (b.category || '').toString().trim();
   const borough = (b.borough || '').toString().trim();
+  const instruction = (b.instruction || '').toString().trim().slice(0, 400);
+  const base = (b.base || '').toString().trim().slice(0, 2000);
 
   if (llmConfigured()) {
     try {
-      const system =
-        ZINGA_VOICE +
-        ' Write a FIRST-TOUCH cold outreach DM to a prospective provider. Be ' +
-        'specific and genuine (reference their business/category/area), lead with ' +
-        'value (free listing, fills mid-week gaps, direct bookings), and end with a ' +
-        'light question. Include Zinga\'s destinations so they can act directly — ' +
-        'the website AND both app-store links (iOS and Android) — as a short line ' +
-        `near the end, exactly: ${ZINGA_LINKS_LINE}. No signature. Output ONLY the message text.`;
-      const user = `Provider: ${name}${category ? ` · ${category}` : ''}${borough ? ` · ${borough}` : ''}. Write the intro DM.`;
+      const who = `${name}${category ? ` · ${category}` : ''}${borough ? ` · ${borough}` : ''}`;
+      let system: string;
+      let user: string;
+
+      if (instruction) {
+        // Operator steer (Shorter / Casual / Formal / a custom typed instruction).
+        // Rewrite the current draft per the instruction; the operator's steer wins
+        // (so "shorter" isn't forced to keep the full app-store links line).
+        system =
+          ZINGA_VOICE +
+          ' You are refining a FIRST-TOUCH cold outreach DM to a prospective ' +
+          'provider. Keep Zinga\'s value (free listing, fills mid-week gaps, direct ' +
+          'bookings) and end with a light question. Follow the operator instruction ' +
+          'exactly. No signature. Output ONLY the message text. ' +
+          `Operator instruction: ${instruction}`;
+        user = base
+          ? `Provider: ${who}.\n\nCurrent draft:\n"""${base}"""\n\nRewrite it per the instruction.`
+          : `Provider: ${who}. Write the intro DM per the instruction.`;
+      } else {
+        // Fresh first-touch generate — includes the site + both app-store links.
+        system =
+          ZINGA_VOICE +
+          ' Write a FIRST-TOUCH cold outreach DM to a prospective provider. Be ' +
+          'specific and genuine (reference their business/category/area), lead with ' +
+          'value (free listing, fills mid-week gaps, direct bookings), and end with a ' +
+          'light question. Include Zinga\'s destinations so they can act directly — ' +
+          'the website AND both app-store links (iOS and Android) — as a short line ' +
+          `near the end, exactly: ${ZINGA_LINKS_LINE}. No signature. Output ONLY the message text.`;
+        user = `Provider: ${who}. Write the intro DM.`;
+      }
+
       const { text, provider } = await generate(system, user);
       return NextResponse.json({ draft: text, source: provider });
     } catch (e) {
