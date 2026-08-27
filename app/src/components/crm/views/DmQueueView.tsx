@@ -57,6 +57,11 @@ export function DmQueueView() {
   const lead = list[clampedIdx] as Lead | undefined;
 
   const [message, setMessage] = useState('');
+  // Once the operator customizes the message (edit / tone chip / Custom / Regenerate)
+  // it becomes a SHARED template that persists across the whole queue — every lead
+  // shows it, so a custom message affects all, not just the current IG. Until then,
+  // each lead shows the default draft. "Reset to default" clears this.
+  const [customized, setCustomized] = useState(false);
   const [copied, setCopied] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [customText, setCustomText] = useState('');
@@ -83,13 +88,15 @@ export function DmQueueView() {
         instruction,
         base: instruction ? message : undefined,
       },
-      { onSuccess: (r) => setMessage(r.draft) },
+      { onSuccess: (r) => { setMessage(r.draft); setCustomized(true); } },
     );
   };
 
-  // Regenerate the draft whenever the selected lead changes.
+  // When the selected lead changes: keep the shared custom message if the operator
+  // has customized it (so it applies to every lead); otherwise show this lead's
+  // default draft.
   useEffect(() => {
-    setMessage(lead ? draftDm(lead) : '');
+    if (!customized) setMessage(lead ? draftDm() : '');
     setCopied(false);
   }, [lead?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -286,10 +293,17 @@ export function DmQueueView() {
                 <Stat label="Website" value={lead.website ? '✓' : '—'} />
               </div>
 
-              <label style={eyebrow}>AI-generated message</label>
+              <label style={{ ...eyebrow, display: 'flex', alignItems: 'center', gap: 8 }}>
+                Message
+                {customized && (
+                  <span style={{ fontFamily: C.mono, fontSize: 9, color: C.teal, border: `1px solid ${C.teal}`, borderRadius: 5, padding: '1px 6px' }}>
+                    applies to all leads
+                  </span>
+                )}
+              </label>
               <textarea
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => { setMessage(e.target.value); setCustomized(true); }}
                 style={{ ...fieldStyle, width: '100%', minHeight: 110, resize: 'vertical', lineHeight: 1.55, marginBottom: 8 }}
               />
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: customOpen ? 8 : 14 }}>
@@ -298,6 +312,17 @@ export function DmQueueView() {
                 <MsgChip label="Casual" onClick={() => regenerate('Make the tone more casual, warm and friendly.')} disabled={dmDraft.isPending} />
                 <MsgChip label="Formal" onClick={() => regenerate('Make the tone more formal and professional.')} disabled={dmDraft.isPending} />
                 <MsgChip label={customOpen ? '✕ Custom' : '✎ Custom'} onClick={() => setCustomOpen((o) => !o)} active={customOpen} />
+                {customized && (
+                  <MsgChip
+                    label="↺ Reset"
+                    onClick={() => {
+                      setCustomized(false);
+                      setCustomOpen(false);
+                      setCustomText('');
+                      setMessage(lead ? draftDm() : '');
+                    }}
+                  />
+                )}
               </div>
               {customOpen && (
                 <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>

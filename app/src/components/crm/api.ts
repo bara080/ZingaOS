@@ -299,24 +299,16 @@ export function leadNextAction(l: Lead): string {
 // Zinga-voice template DM derived from real lead fields (matches the email
 // draft voice). Placeholder until the OpenAI Responses API is wired —
 // see docs/outreach-crm-plan.md. Deterministic, no invented numbers.
-export function draftDm(l: Lead): string {
-  const name = leadName(l);
-  const cat = (l.category || '').toLowerCase();
-  const noun = cat.includes('barber')
-    ? 'barbershops'
-    : cat.includes('hair') || cat.includes('salon') || cat.includes('beauty')
-      ? 'salons'
-      : cat.includes('nail')
-        ? 'nail studios'
-        : cat.includes('photo')
-          ? 'photographers'
-          : cat.includes('massage') || cat.includes('spa')
-            ? 'spas'
-            : 'local businesses';
-  const where = l.borough ? ` in ${l.borough}` : '';
+// Default DM Queue outreach message (Zinga's current cold-DM copy). Generic by
+// design — the same pitch works for every beauty/grooming pro, so it doubles as a
+// shared bulk template (the DM Queue keeps edits/customizations across leads).
+export function draftDm(): string {
   return (
-    `Hey! Came across ${name}${where} and really love your work. ` +
-    `We help ${noun} fill mid-week gaps and take bookings directly through Zinga — ` +
-    `no cost to be listed. Open to a quick 2-min look?`
+    'Hey, love your work on here! 🔥\n' +
+    'We’re launching Zinga app to send new clients straight to top beauty and ' +
+    'grooming pros. We handle the discovery, upfront payments so you can focus ' +
+    'strictly on clients. You keep full control of your rates, scheduling and ' +
+    'hours. Think of us like Uber for beauty and grooming pros.\n' +
+    'Open to taking on extra bookings this month? download Zinga app in the app store'
   );
 }

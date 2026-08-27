@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireIgDemo } from '@/lib/operator/guard';
-import { llmConfigured, generate, ZINGA_VOICE, ZINGA_LINKS, ZINGA_LINKS_LINE } from '@/lib/llm';
+import { llmConfigured, generate, ZINGA_VOICE } from '@/lib/llm';
 
 // POST /api/operator/crm/dm-draft  { name?, business?, category?, borough?, instruction?, base? }
 // Generates (or, with `instruction`+`base`, REWRITES) a first-touch cold intro DM
@@ -10,21 +10,15 @@ import { llmConfigured, generate, ZINGA_VOICE, ZINGA_LINKS, ZINGA_LINKS_LINE } f
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function template(name: string, category: string, borough: string): string {
-  const cat = category.toLowerCase();
-  const noun = cat.includes('barber') ? 'barbershops'
-    : cat.includes('hair') || cat.includes('salon') || cat.includes('beauty') ? 'salons'
-    : cat.includes('nail') ? 'nail studios'
-    : cat.includes('photo') ? 'photographers'
-    : cat.includes('massage') || cat.includes('spa') ? 'spas'
-    : 'local businesses';
-  const where = borough ? ` in ${borough}` : '';
+// Zinga's current cold-DM copy (also the DM Queue default in crm/api.ts draftDm).
+function template(): string {
   return (
-    `Hey! Came across ${name}${where} and really love your work. We help ${noun} ` +
-    `fill mid-week gaps and take bookings directly through Zinga — no cost to be ` +
-    `listed. You can check it out at ${ZINGA_LINKS.web} or grab the app — ` +
-    `iOS: ${ZINGA_LINKS.ios} · Android: ${ZINGA_LINKS.android}. ` +
-    `Open to a quick 2-min look?`
+    'Hey, love your work on here! 🔥\n' +
+    'We’re launching Zinga app to send new clients straight to top beauty and ' +
+    'grooming pros. We handle the discovery, upfront payments so you can focus ' +
+    'strictly on clients. You keep full control of your rates, scheduling and ' +
+    'hours. Think of us like Uber for beauty and grooming pros.\n' +
+    'Open to taking on extra bookings this month? download Zinga app in the app store'
   );
 }
 
@@ -51,6 +45,15 @@ export async function POST(req: Request) {
   const instruction = (b.instruction || '').toString().trim().slice(0, 400);
   const base = (b.base || '').toString().trim().slice(0, 2000);
 
+  // Zinga's current value prop, for the model to stay on-message.
+  const VALUE_PROP =
+    'Zinga is launching an app that sends new clients straight to top beauty and ' +
+    'grooming pros. Zinga handles discovery and upfront payments so the pro focuses ' +
+    'strictly on clients; the pro keeps full control of their rates, scheduling and ' +
+    'hours. Frame it like "Uber for beauty and grooming pros." End with a light ' +
+    'question about taking on extra bookings this month and tell them to download ' +
+    'the Zinga app in the app store.';
+
   if (llmConfigured()) {
     try {
       const who = `${name}${category ? ` · ${category}` : ''}${borough ? ` · ${borough}` : ''}`;
@@ -59,28 +62,22 @@ export async function POST(req: Request) {
 
       if (instruction) {
         // Operator steer (Shorter / Casual / Formal / a custom typed instruction).
-        // Rewrite the current draft per the instruction; the operator's steer wins
-        // (so "shorter" isn't forced to keep the full app-store links line).
         system =
           ZINGA_VOICE +
-          ' You are refining a FIRST-TOUCH cold outreach DM to a prospective ' +
-          'provider. Keep Zinga\'s value (free listing, fills mid-week gaps, direct ' +
-          'bookings) and end with a light question. Follow the operator instruction ' +
-          'exactly. No signature. Output ONLY the message text. ' +
+          ' You are refining a cold outreach DM to a prospective beauty/grooming ' +
+          'provider. ' + VALUE_PROP + ' Follow the operator instruction exactly. ' +
+          'No signature. Output ONLY the message text. ' +
           `Operator instruction: ${instruction}`;
         user = base
           ? `Provider: ${who}.\n\nCurrent draft:\n"""${base}"""\n\nRewrite it per the instruction.`
           : `Provider: ${who}. Write the intro DM per the instruction.`;
       } else {
-        // Fresh first-touch generate — includes the site + both app-store links.
+        // Fresh first-touch generate.
         system =
           ZINGA_VOICE +
-          ' Write a FIRST-TOUCH cold outreach DM to a prospective provider. Be ' +
-          'specific and genuine (reference their business/category/area), lead with ' +
-          'value (free listing, fills mid-week gaps, direct bookings), and end with a ' +
-          'light question. Include Zinga\'s destinations so they can act directly — ' +
-          'the website AND both app-store links (iOS and Android) — as a short line ' +
-          `near the end, exactly: ${ZINGA_LINKS_LINE}. No signature. Output ONLY the message text.`;
+          ' Write a FIRST-TOUCH cold outreach DM to a prospective beauty/grooming ' +
+          'provider. Open with a genuine compliment on their work. ' + VALUE_PROP +
+          ' No signature. Output ONLY the message text.';
         user = `Provider: ${who}. Write the intro DM.`;
       }
 
@@ -91,5 +88,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ draft: template(name, category, borough), source: 'template' });
+  return NextResponse.json({ draft: template(), source: 'template' });
 }
