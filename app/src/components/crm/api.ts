@@ -299,16 +299,39 @@ export function leadNextAction(l: Lead): string {
 // Zinga-voice template DM derived from real lead fields (matches the email
 // draft voice). Placeholder until the OpenAI Responses API is wired —
 // see docs/outreach-crm-plan.md. Deterministic, no invented numbers.
-// Default DM Queue outreach message (Zinga's current cold-DM copy). Generic by
-// design — the same pitch works for every beauty/grooming pro, so it doubles as a
-// shared bulk template (the DM Queue keeps edits/customizations across leads).
+// Default DM Queue outreach message (Zinga's current cold-DM copy). Shared bulk
+// template — the {username} placeholder is filled per-lead by fillTemplate() so
+// one message still personalizes for every IG.
 export function draftDm(): string {
   return (
-    'Hey, love your work on here! 🔥\n' +
+    'Hey {username}, love your work on here! 🔥\n' +
     'We’re launching Zinga app to send new clients straight to top beauty and ' +
     'grooming pros. We handle the discovery, upfront payments so you can focus ' +
     'strictly on clients. You keep full control of your rates, scheduling and ' +
     'hours. Think of us like Uber for beauty and grooming pros.\n' +
     'Open to taking on extra bookings this month? download Zinga app in the app store'
   );
+}
+
+// Supported mail-merge placeholders for DM templates.
+export const DM_TEMPLATE_VARS = ['username', 'name', 'borough', 'category'] as const;
+
+// Fill {username}/{name}/{borough}/{category} in a template for one lead. Unknown
+// placeholders are left as-is. Case-insensitive; {handle}=={username}, {business}=={name}.
+export function fillTemplate(tpl: string, l: Lead): string {
+  const handle = (l.instagram || '').replace(/^@/, '').trim();
+  const name = leadName(l);
+  const map: Record<string, string> = {
+    username: handle || name,
+    handle: handle || name,
+    name,
+    business: name,
+    borough: l.borough || '',
+    location: l.borough || '',
+    category: l.category || '',
+  };
+  return tpl.replace(/\{(\w+)\}/g, (m, key: string) => {
+    const v = map[key.toLowerCase()];
+    return v != null && v !== '' ? v : m;
+  });
 }

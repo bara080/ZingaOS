@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, Copy, Check, SkipForward, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLeads, useMarkSent, useCrmStats, useLeadActivity, useAgents, useDmDraft } from '../hooks';
-import { draftDm, leadHandle, leadName, type Lead } from '../api';
+import { draftDm, fillTemplate, leadHandle, leadName, type Lead } from '../api';
 import { DAILY_DM_CAP } from '../channels';
 import { C } from '@/components/operator/theme';
 
@@ -100,6 +100,12 @@ export function DmQueueView() {
     setCopied(false);
   }, [lead?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The message the operator writes is a TEMPLATE (may contain {username} etc.).
+  // `resolved` is what actually gets copied/sent for the CURRENT lead — the same
+  // template personalizes for every IG. `hasVars` drives the per-lead preview.
+  const resolved = lead ? fillTemplate(message, lead) : message;
+  const hasVars = /\{\w+\}/.test(message);
+
   const advance = () => setIdx((i) => Math.min(i + 1, list.length - 1));
 
   // Queue pagination — page is derived from the selected index so paging and
@@ -120,7 +126,7 @@ export function DmQueueView() {
     const id = lead.id;
     setFlash(null);
     mark.mutate(
-      { leadId: id, platform: 'instagram', sendMode, message },
+      { leadId: id, platform: 'instagram', sendMode, message: resolved },
       {
         onSuccess: () => {
           // Persisted server-side: outreach_messages row + stage → contacted + audit.
@@ -137,7 +143,7 @@ export function DmQueueView() {
   const copyAndOpen = async () => {
     if (!lead) return;
     try {
-      await navigator.clipboard.writeText(message);
+      await navigator.clipboard.writeText(resolved);
       setCopied(true);
     } catch {
       /* clipboard blocked — the textarea is still selectable */
@@ -354,6 +360,34 @@ export function DmQueueView() {
                   >
                     {dmDraft.isPending ? 'Generating…' : '✨ Rewrite'}
                   </button>
+                </div>
+              )}
+
+              {/* Merge-variable hint + per-lead preview (what actually gets sent) */}
+              <div style={{ fontFamily: C.mono, fontSize: 9.5, color: C.ink3, marginBottom: hasVars ? 8 : 14, lineHeight: 1.5 }}>
+                Variables:{' '}
+                <span style={{ color: C.teal }}>{'{username}'}</span>{' '}
+                <span style={{ color: C.ink2 }}>{'{name}'} {'{borough}'} {'{category}'}</span>
+                {' '}— filled per lead.
+              </div>
+              {hasVars && lead && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ ...eyebrow, marginBottom: 5 }}>Preview · @{leadHandle(lead)?.replace(/^@/, '') || 'this lead'}</div>
+                  <div
+                    style={{
+                      fontFamily: C.sans,
+                      fontSize: 12.5,
+                      color: C.ink2,
+                      lineHeight: 1.55,
+                      whiteSpace: 'pre-wrap',
+                      border: `1px solid ${C.line}`,
+                      borderRadius: 8,
+                      background: 'rgba(47,217,201,0.05)',
+                      padding: '9px 11px',
+                    }}
+                  >
+                    {resolved}
+                  </div>
                 </div>
               )}
 

@@ -11,9 +11,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Zinga's current cold-DM copy (also the DM Queue default in crm/api.ts draftDm).
+// {username} is a mail-merge placeholder filled per-lead by fillTemplate().
 function template(): string {
   return (
-    'Hey, love your work on here! 🔥\n' +
+    'Hey {username}, love your work on here! 🔥\n' +
     'We’re launching Zinga app to send new clients straight to top beauty and ' +
     'grooming pros. We handle the discovery, upfront payments so you can focus ' +
     'strictly on clients. You keep full control of your rates, scheduling and ' +
@@ -52,7 +53,9 @@ export async function POST(req: Request) {
     'strictly on clients; the pro keeps full control of their rates, scheduling and ' +
     'hours. Frame it like "Uber for beauty and grooming pros." End with a light ' +
     'question about taking on extra bookings this month and tell them to download ' +
-    'the Zinga app in the app store.';
+    'the Zinga app in the app store. IMPORTANT: preserve any {curly_brace} ' +
+    'placeholders (e.g. {username}) EXACTLY as written — they are mail-merge ' +
+    'tokens filled in per-lead later; never replace or remove them.';
 
   if (llmConfigured()) {
     try {
@@ -76,7 +79,9 @@ export async function POST(req: Request) {
         system =
           ZINGA_VOICE +
           ' Write a FIRST-TOUCH cold outreach DM to a prospective beauty/grooming ' +
-          'provider. Open with a genuine compliment on their work. ' + VALUE_PROP +
+          'provider. Address them by the literal token {username} (kept verbatim) — ' +
+          'e.g. start "Hey {username}, ...". Open with a genuine compliment on their ' +
+          'work. ' + VALUE_PROP +
           ' No signature. Output ONLY the message text.';
         user = `Provider: ${who}. Write the intro DM.`;
       }
