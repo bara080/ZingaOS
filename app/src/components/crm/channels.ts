@@ -54,5 +54,5 @@ export const CHANNELS: ChannelCapability[] = [
   },
 ];
 
-// Manual-DM warming cap (shared with the DM Queue guardrail).
-export const DAILY_DM_CAP = 40;
+// Manual-DM daily cap (shared with the DM Queue guardrail).
+export const DAILY_DM_CAP = 200;
