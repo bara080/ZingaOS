@@ -20,7 +20,9 @@ returns text language sql immutable set search_path = ops, pg_temp as $$
   select nullif(lower(regexp_replace(coalesce(p,''), '^@+', '')), '');
 $$;
 
--- Add a handle to the denylist AND delete any matching leads. Returns #leads removed.
+-- Add a handle to the denylist (blocks FUTURE scrapes) and mark any matching
+-- existing leads 'skipped' — NON-DESTRUCTIVE: the rows are kept (still in the
+-- Leads tab), just dropped from the DM Queue. Returns #leads affected.
 create or replace function public.operator_lead_denylist_add(
   p_handle text, p_reason text, p_actor text
 )
@@ -34,7 +36,8 @@ begin
   insert into ops.lead_denylist(handle, reason, actor)
     values (h, nullif(p_reason,''), nullif(p_actor,''))
     on conflict (handle) do update set reason = coalesce(excluded.reason, ops.lead_denylist.reason);
-  delete from ops.leads where ops.norm_handle(instagram) = h;
+  update ops.leads set stage = 'skipped'
+    where ops.norm_handle(instagram) = h and coalesce(stage,'') <> 'skipped';
   get diagnostics n = row_count;
   return n;
 end $$;

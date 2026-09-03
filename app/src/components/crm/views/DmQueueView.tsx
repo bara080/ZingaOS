@@ -124,7 +124,7 @@ export function DmQueueView() {
               ? 'Removed from queue'
               : action === 'delete'
                 ? 'Lead deleted'
-                : `Blocked @${handle} — ${r.removed} removed, future scrapes will skip it`,
+                : `Blocked @${handle} — kept in Leads, out of queue; future scrapes will skip it`,
           ),
         onError: (e) => setFlash(`Failed: ${e instanceof Error ? e.message : 'error'}`),
       },
@@ -764,7 +764,7 @@ function QueueRowMenu({
           )}
           {confirm === 'block' && (
             <div style={{ fontFamily: C.mono, fontSize: 9, color: C.ink3, padding: '2px 10px 6px', lineHeight: 1.5 }}>
-              Deletes this lead + auto-drops @{handle} from future scrapes.
+              Keeps the lead (out of queue) + auto-drops @{handle} from future scrapes.
             </div>
           )}
         </div>
