@@ -183,6 +183,109 @@ function bodyHtml(sigHtml: string, footer: string): string {
 </div>`;
 }
 
+// ── 1:1 reply send (Gmail bridge) ────────────────────────────────────────────
+// Send ONE email as a direct reply to a contact, reusing the same SMTP connect /
+// EHLO / STARTTLS / AUTH LOGIN logic as the batch sender. Connection is opened,
+// one message is sent, and the connection is closed. Returns the Message-ID we
+// stamped on the outbound message (used for threading + stored server-side).
+//
+// Reads SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD from the env, with the
+// From identity taken from OUTREACH_FROM (falling back to SMTP_USER). This is a
+// low-risk 1:1 human reply, not a cold blast — no CAN-SPAM footer is required,
+// but the caller may pass one in `text`/`html` if desired.
+export async function sendEmail(opts: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  inReplyTo?: string;
+}): Promise<{ messageId: string }> {
+  const host = process.env.SMTP_HOST ?? '';
+  const port = Number(process.env.SMTP_PORT ?? '587') || 587;
+  const user = process.env.SMTP_USER ?? '';
+  const password = process.env.SMTP_PASSWORD ?? '';
+  const from = (process.env.OUTREACH_FROM || user || '').trim();
+
+  if (!host || !user || !password) {
+    throw new Error('SMTP not configured (SMTP_HOST / SMTP_USER / SMTP_PASSWORD)');
+  }
+  if (!from) throw new Error('sender identity missing (OUTREACH_FROM / SMTP_USER)');
+
+  const fromDomain = from.split('@')[1] || 'zingaapp.com';
+  const messageId = `<${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@${fromDomain}>`;
+  const message = buildReplyMessage({
+    from,
+    to: opts.to,
+    subject: opts.subject,
+    text: opts.text,
+    html: opts.html,
+    messageId,
+    inReplyTo: opts.inReplyTo,
+  });
+
+  let client: SmtpClient | null = null;
+  try {
+    client = await SmtpClient.connect({ host, port, user, password });
+    await client.sendMessage(from, opts.to, message);
+  } finally {
+    if (client) await client.quit();
+  }
+  return { messageId };
+}
+
+// Build a plain-or-multipart RFC822 message for a 1:1 reply. Stamps our own
+// Message-ID and threads via In-Reply-To / References when a parent id is given.
+function buildReplyMessage(opts: {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  messageId: string;
+  inReplyTo?: string;
+}): string {
+  const { from, to, subject, text, html, messageId, inReplyTo } = opts;
+  const date = new Date().toUTCString();
+  const headerLines = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    `Date: ${date}`,
+    `Message-ID: ${messageId}`,
+  ];
+  if (inReplyTo) {
+    headerLines.push(`In-Reply-To: ${inReplyTo}`);
+    headerLines.push(`References: ${inReplyTo}`);
+  }
+  headerLines.push('MIME-Version: 1.0');
+
+  if (!html) {
+    headerLines.push('Content-Type: text/plain; charset="utf-8"');
+    headerLines.push('Content-Transfer-Encoding: 8bit');
+    return `${headerLines.join('\r\n')}\r\n\r\n${text}`;
+  }
+
+  const boundary = `=_zinga_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+  headerLines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+  const parts = [
+    `--${boundary}`,
+    `Content-Type: text/plain; charset="utf-8"`,
+    `Content-Transfer-Encoding: 8bit`,
+    ``,
+    text,
+    ``,
+    `--${boundary}`,
+    `Content-Type: text/html; charset="utf-8"`,
+    `Content-Transfer-Encoding: 8bit`,
+    ``,
+    html,
+    ``,
+    `--${boundary}--`,
+    ``,
+  ].join('\r\n');
+  return `${headerLines.join('\r\n')}\r\n\r\n${parts}`;
+}
+
 // Build a multipart/alternative RFC822 message. Includes the CAN-SPAM footer with
 // the physical mailing address (CAN_SPAM_ADDRESS) + an unsubscribe instruction.
 export function buildOutreachMessage(opts: {

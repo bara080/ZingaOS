@@ -12,11 +12,24 @@ export const crmKeys = {
   stats: ['crm', 'stats'] as const,
   igThreads: ['crm', 'ig', 'threads'] as const,
   igThread: (igsid: string | null) => ['crm', 'ig', 'thread', igsid] as const,
+  emailThreads: ['crm', 'email', 'threads'] as const,
+  emailThread: (contact: string | null) => ['crm', 'email', 'thread', contact] as const,
+  smsThreads: ['crm', 'sms', 'threads'] as const,
+  smsThread: (phone: string | null) => ['crm', 'sms', 'thread', phone] as const,
+  smsConsent: ['crm', 'sms', 'consent'] as const,
+  whatsappThreads: ['crm', 'whatsapp', 'threads'] as const,
+  whatsappThread: (phone: string | null) => ['crm', 'whatsapp', 'thread', phone] as const,
+  whatsappConsent: ['crm', 'whatsapp', 'consent'] as const,
   campaigns: ['crm', 'campaigns'] as const,
   segments: ['crm', 'segments'] as const,
   analytics: (days: number) => ['crm', 'analytics', days] as const,
   agents: ['crm', 'agents'] as const,
   automations: ['crm', 'automations'] as const,
+  emailCampaigns: ['crm', 'email-engine', 'campaigns'] as const,
+  emailRuns: (campaignId: string | null) => ['crm', 'email-engine', 'runs', campaignId] as const,
+  emailRun: (runId: string | null) => ['crm', 'email-engine', 'run', runId] as const,
+  emailRunRecipients: (runId: string | null, page: number, status?: string) =>
+    ['crm', 'email-engine', 'run', runId, 'recipients', page, status ?? ''] as const,
 };
 
 export function useLeads(params?: { stage?: string; source?: string; q?: string }) {
@@ -66,6 +79,211 @@ export function useIgSend() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: crmKeys.igThreads });
       qc.invalidateQueries({ queryKey: crmKeys.igThread(vars.igsid) });
+    },
+  });
+}
+
+// ── Email channel ─────────────────────────────────────────────────────────
+export function useEmailThreads(enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.emailThreads,
+    queryFn: () => crmApi.emailThreads(),
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? 20_000 : false,
+  });
+}
+
+export function useEmailThread(contact: string | null, enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.emailThread(contact),
+    queryFn: () => crmApi.emailThread(contact as string),
+    enabled: enabled && !!contact,
+    retry: false,
+    refetchInterval: enabled && contact ? 15_000 : false,
+  });
+}
+
+export function useEmailDraft() {
+  return useMutation({ mutationFn: (vars: { contact: string }) => crmApi.emailDraft(vars.contact) });
+}
+
+export function useEmailSend() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { contact: string; subject: string; body: string; inReplyTo?: string }) =>
+      crmApi.emailSend(vars),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: crmKeys.emailThreads });
+      qc.invalidateQueries({ queryKey: crmKeys.emailThread(vars.contact) });
+    },
+  });
+}
+
+export function useEmailPoll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => crmApi.emailPoll(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.emailThreads });
+    },
+  });
+}
+
+// ── SMS channel (consent-gated) ─────────────────────────────────────────────
+export function useSmsThreads(enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.smsThreads,
+    queryFn: () => crmApi.smsThreads(),
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? 20_000 : false,
+  });
+}
+
+export function useSmsThread(phone: string | null, enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.smsThread(phone),
+    queryFn: () => crmApi.smsThread(phone as string),
+    enabled: enabled && !!phone,
+    retry: false,
+    refetchInterval: enabled && phone ? 15_000 : false,
+  });
+}
+
+export function useSmsConsent(enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.smsConsent,
+    queryFn: () => crmApi.smsConsentList(),
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? 30_000 : false,
+  });
+}
+
+export function useSmsDraft() {
+  return useMutation({
+    mutationFn: (vars: {
+      name?: string;
+      business?: string;
+      category?: string;
+      borough?: string;
+      base?: string;
+      instruction?: string;
+    }) => crmApi.smsDraft(vars),
+  });
+}
+
+export function useSmsSend() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { to: string; text: string }) => crmApi.smsSend(vars),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: crmKeys.smsThreads });
+      qc.invalidateQueries({ queryKey: crmKeys.smsThread(vars.to) });
+    },
+  });
+}
+
+export function useSmsConsentAdd() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { phone: string; name?: string; leadId?: number; source?: string }) =>
+      crmApi.smsConsentAdd(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.smsConsent });
+      qc.invalidateQueries({ queryKey: crmKeys.smsThreads });
+    },
+  });
+}
+
+export function useSmsConsentOptout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { phone: string }) => crmApi.smsConsentOptout(body),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: crmKeys.smsConsent });
+      qc.invalidateQueries({ queryKey: crmKeys.smsThreads });
+      qc.invalidateQueries({ queryKey: crmKeys.smsThread(vars.phone) });
+    },
+  });
+}
+
+// ── WhatsApp channel (consent-gated · Meta Cloud API) ────────────────────────
+export function useWhatsappThreads(enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.whatsappThreads,
+    queryFn: () => crmApi.whatsappThreads(),
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? 20_000 : false,
+  });
+}
+
+export function useWhatsappThread(phone: string | null, enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.whatsappThread(phone),
+    queryFn: () => crmApi.whatsappThread(phone as string),
+    enabled: enabled && !!phone,
+    retry: false,
+    refetchInterval: enabled && phone ? 15_000 : false,
+  });
+}
+
+export function useWhatsappConsent(enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.whatsappConsent,
+    queryFn: () => crmApi.whatsappConsentList(),
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? 30_000 : false,
+  });
+}
+
+export function useWhatsappDraft() {
+  return useMutation({
+    mutationFn: (vars: {
+      name?: string;
+      business?: string;
+      category?: string;
+      borough?: string;
+      base?: string;
+      instruction?: string;
+    }) => crmApi.whatsappDraft(vars),
+  });
+}
+
+export function useWhatsappSend() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { to: string; text: string }) => crmApi.whatsappSend(vars),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: crmKeys.whatsappThreads });
+      qc.invalidateQueries({ queryKey: crmKeys.whatsappThread(vars.to) });
+    },
+  });
+}
+
+export function useWhatsappConsentAdd() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { phone: string; name?: string; leadId?: number; source?: string }) =>
+      crmApi.whatsappConsentAdd(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.whatsappConsent });
+      qc.invalidateQueries({ queryKey: crmKeys.whatsappThreads });
+    },
+  });
+}
+
+export function useWhatsappConsentOptout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { phone: string }) => crmApi.whatsappConsentOptout(body),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: crmKeys.whatsappConsent });
+      qc.invalidateQueries({ queryKey: crmKeys.whatsappThreads });
+      qc.invalidateQueries({ queryKey: crmKeys.whatsappThread(vars.phone) });
     },
   });
 }
@@ -219,6 +437,90 @@ export function useLeadAdd() {
       qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
       qc.invalidateQueries({ queryKey: crmKeys.stats });
     },
+  });
+}
+
+// ── Email campaign engine ───────────────────────────────────────────────────
+export function useEmailCampaigns() {
+  return useQuery({
+    queryKey: crmKeys.emailCampaigns,
+    queryFn: () => crmApi.emailCampaigns(),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useEmailCampaignCreate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof crmApi.emailCampaignCreate>[0]) => crmApi.emailCampaignCreate(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.emailCampaigns }),
+  });
+}
+
+export function useEmailRuns(campaignId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.emailRuns(campaignId),
+    queryFn: () => crmApi.emailRuns(campaignId as string),
+    enabled: enabled && !!campaignId,
+    refetchInterval: enabled && campaignId ? 15_000 : false,
+  });
+}
+
+export function useEmailRunLaunch(campaignId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof crmApi.emailRunLaunch>[1]) =>
+      crmApi.emailRunLaunch(campaignId as string, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.emailRuns(campaignId) });
+      qc.invalidateQueries({ queryKey: crmKeys.emailCampaigns });
+    },
+  });
+}
+
+export function useEmailRun(runId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.emailRun(runId),
+    queryFn: () => crmApi.emailRunGet(runId as string),
+    enabled: enabled && !!runId,
+    refetchInterval: enabled && runId ? 5_000 : false,
+  });
+}
+
+export function useEmailRunRecipients(
+  runId: string | null,
+  opts?: { page?: number; status?: string; enabled?: boolean },
+) {
+  const page = opts?.page ?? 1;
+  const enabled = opts?.enabled ?? true;
+  return useQuery({
+    queryKey: crmKeys.emailRunRecipients(runId, page, opts?.status),
+    queryFn: () => crmApi.emailRunRecipients(runId as string, { page, status: opts?.status }),
+    enabled: enabled && !!runId,
+  });
+}
+
+export function useEmailRunControl(runId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (action: 'pause' | 'resume' | 'stop' | 'continue') =>
+      crmApi.emailRunControl(runId as string, action),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.emailRun(runId) }),
+  });
+}
+
+export function useEmailRunDrain(runId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => crmApi.emailRunDrain(runId as string),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.emailRun(runId) }),
+  });
+}
+
+// Send a campaign draft to a single test address (no leads/engine touched).
+export function useEmailTestSend() {
+  return useMutation({
+    mutationFn: (body: { to: string; subject: string; body: string }) => crmApi.emailTestSend(body),
   });
 }
 

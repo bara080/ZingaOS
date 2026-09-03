@@ -13,6 +13,8 @@ import { DmQueueView } from './views/DmQueueView';
 import { LeadsView } from './views/LeadsView';
 import { ScrapeLeadsView } from './views/ScrapeLeadsView';
 import { InboxView } from './views/InboxView';
+import { SmsView } from './views/SmsView';
+import { WhatsAppView } from './views/WhatsAppView';
 import { CampaignsView } from './views/CampaignsView';
 import { AgentsView } from './views/AgentsView';
 import { AutomationsView } from './views/AutomationsView';
@@ -25,6 +27,8 @@ const VIEWS: Record<CrmView, React.ComponentType<{ onNavigate?: (v: CrmView) => 
   leads: LeadsView,
   scrape: ScrapeLeadsView,
   inbox: InboxView,
+  sms: SmsView,
+  whatsapp: WhatsAppView,
   campaigns: CampaignsView,
   agents: AgentsView,
   automations: AutomationsView,

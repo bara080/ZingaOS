@@ -74,6 +74,92 @@ export type IgThreadResponse = { igsid: string; messages: IgMessage[] };
 export type IgDraftResponse = { draft: string; intent: string };
 export type IgSendResponse = { ok: boolean; messageId: string };
 
+// Email channel — mirrors the IG shape but keyed by the CONTACT'S email address.
+// Backed by ops.email_messages via the operator_email_* RPCs.
+export type EmailThread = {
+  contact: string;
+  name: string | null;
+  last_subject: string | null;
+  last_text: string | null;
+  last_at: string;
+  last_direction: 'in' | 'out' | null;
+  msg_count: number;
+};
+export type EmailThreadsResponse = { threads: EmailThread[] };
+export type EmailMessage = {
+  id: number;
+  direction: 'in' | 'out';
+  subject: string | null;
+  body: string | null;
+  created_at: string;
+};
+export type EmailThreadResponse = { contact: string; messages: EmailMessage[] };
+export type EmailDraftResponse = { draft: string; subject?: string; source: string };
+export type EmailSendResponse = { ok: boolean; id: number | null };
+export type EmailPollResponse = { fetched: number; stored: number; skipped: number };
+
+// SMS channel — consent-gated (TCPA + A2P 10DLC). Keyed by the CONTACT'S phone
+// (E.164). Backed by ops.sms_messages + ops.sms_consent via operator_sms_* RPCs.
+export type SmsConsentStatus = 'opted_in' | 'opted_out' | 'unknown';
+export type SmsThread = {
+  phone: string;
+  name: string | null;
+  last_text: string | null;
+  last_at: string;
+  last_direction: 'in' | 'out' | null;
+  msg_count: number;
+  status: SmsConsentStatus;
+};
+export type SmsThreadsResponse = { threads: SmsThread[] };
+export type SmsMessage = { id: number; direction: 'in' | 'out'; body: string | null; created_at: string };
+export type SmsThreadResponse = { phone: string; messages: SmsMessage[] };
+export type SmsConsent = {
+  id: number;
+  lead_id: number | null;
+  phone: string;
+  name: string | null;
+  source: string | null;
+  status: 'opted_in' | 'opted_out';
+  opted_in_at: string | null;
+  opted_out_at: string | null;
+  created_at: string;
+};
+export type SmsConsentResponse = { consent: SmsConsent[]; configured: boolean };
+export type SmsSendResponse = { ok: boolean; id: number | null; providerId: string };
+export type SmsDraftResponse = { draft: string; source: string };
+
+// WhatsApp channel — consent-gated (Meta policy opt-in + templates). Keyed by
+// the CONTACT'S phone (E.164). Backed by ops.whatsapp_messages +
+// ops.whatsapp_consent via operator_whatsapp_* RPCs. Faithful copy of the SMS
+// channel, sending via the Meta WhatsApp Business Cloud API.
+export type WhatsAppConsentStatus = 'opted_in' | 'opted_out' | 'unknown';
+export type WhatsAppThread = {
+  phone: string;
+  name: string | null;
+  last_text: string | null;
+  last_at: string;
+  last_direction: 'in' | 'out' | null;
+  msg_count: number;
+  status: WhatsAppConsentStatus;
+};
+export type WhatsAppThreadsResponse = { threads: WhatsAppThread[] };
+export type WhatsAppMessage = { id: number; direction: 'in' | 'out'; body: string | null; created_at: string };
+export type WhatsAppThreadResponse = { phone: string; messages: WhatsAppMessage[] };
+export type WhatsAppConsent = {
+  id: number;
+  lead_id: number | null;
+  phone: string;
+  name: string | null;
+  source: string | null;
+  status: 'opted_in' | 'opted_out';
+  opted_in_at: string | null;
+  opted_out_at: string | null;
+  created_at: string;
+};
+export type WhatsAppConsentResponse = { consent: WhatsAppConsent[]; configured: boolean };
+export type WhatsAppSendResponse = { ok: boolean; id: number | null; providerId: string };
+export type WhatsAppDraftResponse = { draft: string; source: string };
+
 export type Campaign = {
   id: number;
   name: string;
@@ -156,6 +242,109 @@ export type TimeseriesPoint = { day: string; sent: number; replies: number };
 export type PlatformSends = { platform: string; sent: number };
 export type AnalyticsResponse = { timeseries: TimeseriesPoint[]; byPlatform: PlatformSends[] };
 
+// ── Email campaign engine (durable relational sends) ────────────────────────
+export type EmailEngineCampaign = {
+  id: string;
+  name: string;
+  status: string;
+  current_version_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+export type EmailEngineVersion = { id: string; version: number };
+export type EmailRunProgress = {
+  total: number;
+  accepted: number;
+  failed: number;
+  pending: number;
+  suppressed: number;
+};
+export type EmailEngineRun = {
+  id: string;
+  campaign_id: string;
+  campaign_version_id: string;
+  status: string;
+  audience_mode: string;
+  current_stage: number;
+  audience_count: number;
+  created_at: string;
+  progress?: EmailRunProgress;
+};
+export type EmailRunStage = {
+  stage: number;
+  label: string;
+  total: number;
+  accepted: number;
+  failed: number;
+  pending: number;
+  suppressed: number;
+  status: string;
+};
+export type EmailRunEvent = {
+  id: number;
+  event_type: string;
+  data: Record<string, unknown>;
+  created_at: string;
+};
+export type EmailRunDetail = {
+  run: EmailEngineRun;
+  progress: Record<string, number>;
+  events: EmailRunEvent[];
+  stages: EmailRunStage[];
+};
+export type EmailRunRecipient = {
+  id: string;
+  normalized_email: string;
+  status: string;
+  stage_number: number;
+  attempt_count: number;
+  provider: string | null;
+  provider_message_id: string | null;
+  last_error_message: string | null;
+  accepted_at: string | null;
+};
+export type EmailRecipientsResponse = {
+  recipients: EmailRunRecipient[];
+  total: number;
+  page: number;
+  limit: number;
+};
+export type EmailDrainOutcome = {
+  done?: boolean;
+  paused?: boolean;
+  gated?: boolean;
+  stopped?: boolean;
+  advanced?: boolean;
+  capReached?: boolean;
+  sentNow?: number;
+};
+export type EmailDrainResponse = {
+  outcome: EmailDrainOutcome;
+  progress: Record<string, number> | null;
+  status: string | null;
+};
+export type EmailCampaignsResponse = { campaigns: EmailEngineCampaign[] };
+export type EmailRunsResponse = { runs: EmailEngineRun[] };
+export type CreateEmailCampaignBody = {
+  name: string;
+  subject?: string;
+  html?: string;
+  text?: string;
+  senderKey?: string;
+  replyTo?: string;
+};
+export type LaunchEmailRunBody = {
+  versionId?: string;
+  audienceMode?: string;
+  audienceFilter?: { source?: string; stage?: string; category?: string; borough?: string; limit?: number };
+  duplicatePolicy?: string;
+  stagePlan?: Array<{ limit?: number; label?: string; gate?: string }>;
+  dispatchChunkSize?: number;
+  sourceRunId?: string;
+  priority?: number;
+};
+
 export const crmApi = {
   leads: (params?: { stage?: string; source?: string; q?: string; limit?: number }) => {
     const sp = new URLSearchParams();
@@ -185,6 +374,83 @@ export const crmApi = {
     }),
   igSend: (body: { igsid: string; text: string }) =>
     req<IgSendResponse>('/api/operator/ig/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  emailThreads: () => req<EmailThreadsResponse>('/api/operator/email/threads'),
+  emailThread: (contact: string) =>
+    req<EmailThreadResponse>(`/api/operator/email/thread?contact=${encodeURIComponent(contact)}`),
+  emailDraft: (contact: string) =>
+    req<EmailDraftResponse>('/api/operator/email/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contact }),
+    }),
+  emailSend: (body: { contact: string; subject: string; body: string; inReplyTo?: string }) =>
+    req<EmailSendResponse>('/api/operator/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  emailPoll: () => req<EmailPollResponse>('/api/operator/email/poll', { method: 'POST' }),
+
+  // ── SMS (consent-gated) ─────────────────────────────────────────────────────
+  smsThreads: () => req<SmsThreadsResponse>('/api/operator/sms/threads'),
+  smsThread: (phone: string) =>
+    req<SmsThreadResponse>(`/api/operator/sms/thread?phone=${encodeURIComponent(phone)}`),
+  smsSend: (body: { to: string; text: string }) =>
+    req<SmsSendResponse>('/api/operator/sms/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  smsDraft: (body: { name?: string; business?: string; category?: string; borough?: string; base?: string; instruction?: string }) =>
+    req<SmsDraftResponse>('/api/operator/sms/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  smsConsentList: () => req<SmsConsentResponse>('/api/operator/sms/consent'),
+  smsConsentAdd: (body: { phone: string; name?: string; leadId?: number; source?: string }) =>
+    req<{ ok: boolean; id: number | null }>('/api/operator/sms/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  smsConsentOptout: (body: { phone: string }) =>
+    req<{ ok: boolean; id: number | null }>('/api/operator/sms/consent/optout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  // ── WhatsApp (consent-gated · Meta Cloud API) ────────────────────────────────
+  whatsappThreads: () => req<WhatsAppThreadsResponse>('/api/operator/whatsapp/threads'),
+  whatsappThread: (phone: string) =>
+    req<WhatsAppThreadResponse>(`/api/operator/whatsapp/thread?phone=${encodeURIComponent(phone)}`),
+  whatsappSend: (body: { to: string; text: string }) =>
+    req<WhatsAppSendResponse>('/api/operator/whatsapp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  whatsappDraft: (body: { name?: string; business?: string; category?: string; borough?: string; base?: string; instruction?: string }) =>
+    req<WhatsAppDraftResponse>('/api/operator/whatsapp/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  whatsappConsentList: () => req<WhatsAppConsentResponse>('/api/operator/whatsapp/consent'),
+  whatsappConsentAdd: (body: { phone: string; name?: string; leadId?: number; source?: string }) =>
+    req<{ ok: boolean; id: number | null }>('/api/operator/whatsapp/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  whatsappConsentOptout: (body: { phone: string }) =>
+    req<{ ok: boolean; id: number | null }>('/api/operator/whatsapp/consent/optout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -263,6 +529,50 @@ export const crmApi = {
     }),
   automationSetEnabled: (body: { id: number; enabled: boolean }) =>
     req<{ ok: boolean; enabled: boolean }>('/api/operator/crm/automations/enabled', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  // ── Email campaign engine ──────────────────────────────────────────────────
+  emailCampaigns: () => req<EmailCampaignsResponse>('/api/operator/email-engine/campaigns'),
+  emailCampaignGet: (id: string) =>
+    req<{ campaign: EmailEngineCampaign }>(`/api/operator/email-engine/campaigns/${id}`),
+  emailCampaignCreate: (body: CreateEmailCampaignBody) =>
+    req<{ ok: boolean; campaign: EmailEngineCampaign; version: EmailEngineVersion }>(
+      '/api/operator/email-engine/campaigns',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    ),
+  emailRuns: (campaignId: string) =>
+    req<EmailRunsResponse>(`/api/operator/email-engine/campaigns/${campaignId}/runs`),
+  emailRunLaunch: (campaignId: string, body: LaunchEmailRunBody) =>
+    req<{ run: EmailEngineRun; snapshot: { count: number } }>(
+      `/api/operator/email-engine/campaigns/${campaignId}/runs`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    ),
+  emailRunGet: (runId: string) =>
+    req<EmailRunDetail>(`/api/operator/email-engine/runs/${runId}`),
+  emailRunRecipients: (runId: string, opts?: { page?: number; limit?: number; status?: string }) => {
+    const sp = new URLSearchParams();
+    if (opts?.page) sp.set('page', String(opts.page));
+    if (opts?.limit) sp.set('limit', String(opts.limit));
+    if (opts?.status) sp.set('status', opts.status);
+    const qs = sp.toString();
+    return req<EmailRecipientsResponse>(
+      `/api/operator/email-engine/runs/${runId}/recipients${qs ? `?${qs}` : ''}`,
+    );
+  },
+  emailRunControl: (runId: string, action: 'pause' | 'resume' | 'stop' | 'continue') =>
+    req<{ ok: boolean; status: string }>(`/api/operator/email-engine/runs/${runId}/control`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    }),
+  emailRunDrain: (runId: string) =>
+    req<EmailDrainResponse>(`/api/operator/email-engine/runs/${runId}/drain`, { method: 'POST' }),
+  // Send a campaign draft to ONE test address (no leads/engine touched).
+  emailTestSend: (body: { to: string; subject: string; body: string }) =>
+    req<{ ok: boolean; to: string; messageId?: string }>('/api/operator/email/test-send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

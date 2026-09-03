@@ -33,7 +33,9 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
+    "imapflow": "^1.7.8",
     "lucide-react": "^0.543.0",
+    "mailparser": "^3.9.20",
     "next": "15.5.9",
     "next-themes": "^0.4.6",
     "nextjs-toploader": "^3.9.17",
@@ -52,6 +54,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/mailparser": "^3.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

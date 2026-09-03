@@ -5,10 +5,11 @@
 // campaign list with real Assigned/Sent/Replies/Reply-rate + pause/resume.
 // Right: create builder (Setup → Audience → Delivery → create).
 import { useState } from 'react';
-import { Play, Pause, Instagram, Mail, Music2, Twitter, Facebook } from 'lucide-react';
+import { Play, Pause, Instagram, Mail, Music2, Twitter, Facebook, Send } from 'lucide-react';
 import { useCampaigns, useSegments, useCampaignCreate, useCampaignSetStatus } from '../hooks';
 import type { Campaign } from '../api';
 import { Pager, usePager } from '../Pager';
+import { EmailCampaigns } from './EmailCampaigns';
 import { C } from '@/components/operator/theme';
 
 const PLATFORMS = [
@@ -26,6 +27,7 @@ function rate(n: number, d: number): string {
 }
 
 export function CampaignsView() {
+  const [channel, setChannel] = useState<'social' | 'email'>('social');
   const listQ = useCampaigns();
   const segsQ = useSegments();
   const create = useCampaignCreate();
@@ -59,10 +61,27 @@ export function CampaignsView() {
 
   return (
     <div style={{ width: '100%' }}>
-      <h2 style={{ fontFamily: C.sans, fontSize: 18, fontWeight: 600, color: C.ink, margin: '0 0 14px' }}>
-        Campaigns
-      </h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 16px' }}>
+        <h2 style={{ fontFamily: C.sans, fontSize: 18, fontWeight: 600, color: C.ink, margin: 0 }}>Campaigns</h2>
+        <div style={{ display: 'flex', gap: 4, border: `1px solid ${C.line}`, borderRadius: 9, padding: 3 }}>
+          {([['social', 'Social / DM', Instagram], ['email', 'Email', Send]] as const).map(([k, lbl, Icon]) => {
+            const on = channel === k;
+            return (
+              <button
+                key={k}
+                onClick={() => setChannel(k)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: C.sans, fontSize: 12.5, fontWeight: on ? 600 : 500, color: on ? C.teal : C.ink2, background: on ? 'rgba(47,217,201,0.10)' : 'transparent', border: `1px solid ${on ? C.teal : 'transparent'}`, borderRadius: 7, padding: '6px 12px', cursor: 'pointer' }}
+              >
+                <Icon size={13} /> {lbl}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
+      {channel === 'email' ? (
+        <EmailCampaigns />
+      ) : (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
         {/* ── list ─────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -221,6 +240,7 @@ export function CampaignsView() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
