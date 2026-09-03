@@ -168,6 +168,19 @@ export function useAutomationSetEnabled() {
 }
 
 // AI intro-DM draft (gpt-4o) for the DM Queue.
+// DM Queue ⋮ menu — skip/delete/block a lead. Refreshes the leads lists + stats.
+export function useLeadAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { id?: number; action: 'skip' | 'delete' | 'block'; handle?: string; reason?: string }) =>
+      crmApi.leadAction(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
+      qc.invalidateQueries({ queryKey: ['crm', 'stats'] });
+    },
+  });
+}
+
 export function useDmDraft() {
   return useMutation({
     mutationFn: (vars: {

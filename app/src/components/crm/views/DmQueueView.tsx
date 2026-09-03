@@ -6,9 +6,9 @@
 // is a Zinga-voice template derived from real lead fields — the `// TODO` seam
 // swaps it for the OpenAI Responses API. Manual send is first-class: Copy + Open
 // Instagram, then Mark as Sent advances the queue.
-import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, Copy, Check, SkipForward, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useLeads, useMarkSent, useCrmStats, useLeadActivity, useAgents, useDmDraft } from '../hooks';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ExternalLink, Copy, Check, SkipForward, ChevronLeft, ChevronRight, MoreVertical, MinusCircle, Trash2, Ban } from 'lucide-react';
+import { useLeads, useMarkSent, useCrmStats, useLeadActivity, useAgents, useDmDraft, useLeadAction } from '../hooks';
 import { draftDm, fillTemplate, leadHandle, leadName, type Lead } from '../api';
 import { DAILY_DM_CAP } from '../channels';
 import { C } from '@/components/operator/theme';
@@ -26,10 +26,16 @@ function tabMatch(tab: QueueTab, l: Lead): boolean {
 
 export function DmQueueView() {
   const query = useLeads();
-  // DM queue = leads that actually have an Instagram handle to message.
+  const leadAction = useLeadAction();
+  // Optimistic: hide rows the operator just skipped/deleted/blocked before refetch.
+  const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
+  // DM queue = leads with an IG handle, excluding ones skipped or just-removed.
   const dmable = useMemo(
-    () => (query.data?.leads ?? []).filter((l) => !!l.instagram),
-    [query.data],
+    () =>
+      (query.data?.leads ?? []).filter(
+        (l) => !!l.instagram && (l.stage || '').toLowerCase() !== 'skipped' && !hiddenIds.has(l.id),
+      ),
+    [query.data, hiddenIds],
   );
 
   const statsQ = useCrmStats();
@@ -107,6 +113,37 @@ export function DmQueueView() {
   const hasVars = /\{\w+\}/.test(message);
 
   const advance = () => setIdx((i) => Math.min(i + 1, list.length - 1));
+
+  // ⋮ menu — skip (remove from queue) / delete lead / block+denylist handle.
+  const runLeadAction = (target: Lead, action: 'skip' | 'delete' | 'block') => {
+    if (leadAction.isPending) return;
+    const handle = (target.instagram || '').replace(/^@/, '').trim();
+    // Optimistically drop it from the queue immediately.
+    setHiddenIds((prev) => new Set(prev).add(target.id));
+    leadAction.mutate(
+      { id: target.id, action, handle: action === 'block' ? handle : undefined },
+      {
+        onSuccess: (r) => {
+          setFlash(
+            action === 'skip'
+              ? 'Removed from queue'
+              : action === 'delete'
+                ? 'Lead deleted'
+                : `Blocked @${handle} — ${r.removed} removed, future scrapes will skip it`,
+          );
+        },
+        onError: (e) => {
+          // Roll back the optimistic hide on failure.
+          setHiddenIds((prev) => {
+            const n = new Set(prev);
+            n.delete(target.id);
+            return n;
+          });
+          setFlash(`Failed: ${e instanceof Error ? e.message : 'error'}`);
+        },
+      },
+    );
+  };
 
   // Queue pagination — page is derived from the selected index so paging and
   // lead-navigation stay in sync (Skip/Next can roll onto the next page).
@@ -221,26 +258,32 @@ export function DmQueueView() {
                 const on = i === clampedIdx;
                 const sent = sentIds.has(l.id);
                 return (
-                  <button
+                  <div
                     key={l.id}
-                    onClick={() => setIdx(i)}
                     style={{
-                      textAlign: 'left',
-                      padding: '8px 9px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 6px 4px 9px',
                       borderRadius: 8,
                       border: `1px solid ${on ? C.teal : C.line}`,
                       background: on ? 'rgba(47,217,201,0.08)' : C.panel2,
-                      cursor: 'pointer',
                       opacity: sent ? 0.5 : 1,
                     }}
                   >
-                    <div style={{ fontFamily: C.sans, fontSize: 12.5, color: on ? C.teal : C.ink, fontWeight: 600 }}>
-                      {leadName(l)} {sent && <span style={{ color: C.green }}>✓</span>}
-                    </div>
-                    <div style={{ fontFamily: C.mono, fontSize: 10, color: C.ink3 }}>
-                      {leadHandle(l)} · {l.borough || l.category || '—'}
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => setIdx(i)}
+                      style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer' }}
+                    >
+                      <div style={{ fontFamily: C.sans, fontSize: 12.5, color: on ? C.teal : C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {leadName(l)} {sent && <span style={{ color: C.green }}>✓</span>}
+                      </div>
+                      <div style={{ fontFamily: C.mono, fontSize: 10, color: C.ink3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {leadHandle(l)} · {l.borough || l.category || '—'}
+                      </div>
+                    </button>
+                    <QueueRowMenu lead={l} busy={leadAction.isPending} onAction={runLeadAction} />
+                  </div>
                 );
               })
             )}
@@ -636,6 +679,160 @@ function ProfRow({ k, v, accent }: { k: string; v: string | null; accent?: strin
       <span style={{ fontFamily: C.mono, fontSize: 9.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: C.ink3, width: 74, flexShrink: 0 }}>{k}</span>
       <span style={{ fontFamily: C.sans, fontSize: 11.5, color: v ? accent ?? C.ink2 : C.ink3, wordBreak: 'break-word' }}>{v || '—'}</span>
     </div>
+  );
+}
+
+// ⋮ menu per queue row — Remove from queue (skip) / Delete lead / Not a lead
+// (block+denylist). Fixed-position dropdown anchored to the button so the list's
+// overflow never clips it. Block asks an inline confirm (it also blocks future scrapes).
+function QueueRowMenu({
+  lead,
+  busy,
+  onAction,
+}: {
+  lead: Lead;
+  busy: boolean;
+  onAction: (lead: Lead, action: 'skip' | 'delete' | 'block') => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const [confirm, setConfirm] = useState<null | 'delete' | 'block'>(null);
+  const ref = useRef<HTMLButtonElement>(null);
+  const handle = (lead.instagram || '').replace(/^@/, '');
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    const t = setTimeout(() => document.addEventListener('mousedown', close), 0);
+    document.addEventListener('keydown', key);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', key);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    }
+    setConfirm(null);
+    setOpen((o) => !o);
+  };
+
+  const fire = (action: 'skip' | 'delete' | 'block') => {
+    onAction(lead, action);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={ref}
+        onClick={toggle}
+        title="More options"
+        aria-label="More options"
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          width: 26,
+          height: 26,
+          flexShrink: 0,
+          borderRadius: 7,
+          border: `1px solid ${open ? C.teal : 'transparent'}`,
+          background: open ? 'rgba(47,217,201,0.10)' : 'transparent',
+          color: open ? C.teal : C.ink3,
+          cursor: 'pointer',
+        }}
+      >
+        <MoreVertical size={14} />
+      </button>
+      {open && pos && (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            right: pos.right,
+            zIndex: 70,
+            width: 210,
+            background: '#0e1218',
+            border: `1px solid ${C.line}`,
+            borderRadius: 10,
+            padding: 5,
+            boxShadow: '0 14px 36px rgba(0,0,0,0.5)',
+          }}
+        >
+          <QRowItem icon={MinusCircle} label="Remove from queue" onClick={() => fire('skip')} disabled={busy} />
+          {confirm !== 'delete' ? (
+            <QRowItem icon={Trash2} label="Delete lead" danger onClick={() => setConfirm('delete')} />
+          ) : (
+            <QRowItem icon={Trash2} label={busy ? 'Deleting…' : 'Confirm delete'} danger disabled={busy} onClick={() => fire('delete')} />
+          )}
+          {confirm !== 'block' ? (
+            <QRowItem icon={Ban} label="Not a lead — block" danger onClick={() => setConfirm('block')} disabled={!handle} title={handle ? undefined : 'No handle to block'} />
+          ) : (
+            <QRowItem icon={Ban} label={busy ? 'Blocking…' : `Block @${handle}`} danger disabled={busy} onClick={() => fire('block')} />
+          )}
+          {confirm === 'block' && (
+            <div style={{ fontFamily: C.mono, fontSize: 9, color: C.ink3, padding: '2px 10px 6px', lineHeight: 1.5 }}>
+              Deletes this lead + auto-drops @{handle} from future scrapes.
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function QRowItem({
+  icon: Icon,
+  label,
+  onClick,
+  danger,
+  disabled,
+  title,
+}: {
+  icon: typeof Ban;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+  title?: string;
+}) {
+  const color = disabled ? C.ink3 : danger ? C.red : C.ink2;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 9,
+        width: '100%',
+        textAlign: 'left',
+        padding: '8px 10px',
+        borderRadius: 7,
+        border: '1px solid transparent',
+        background: 'transparent',
+        color,
+        fontFamily: C.sans,
+        fontSize: 12.5,
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) e.currentTarget.style.background = danger ? 'rgba(224,101,90,0.10)' : 'rgba(255,255,255,0.05)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent';
+      }}
+    >
+      <Icon size={13} strokeWidth={2} /> {label}
+    </button>
   );
 }
 

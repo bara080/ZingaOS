@@ -232,6 +232,14 @@ export const crmApi = {
       body: JSON.stringify(body),
     }),
 
+  // DM Queue ⋮ menu: skip (remove from queue) / delete lead / block+denylist handle.
+  leadAction: (body: { id?: number; action: 'skip' | 'delete' | 'block'; handle?: string; reason?: string }) =>
+    req<{ ok: boolean; removed: number }>('/api/operator/crm/lead-action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
   agents: () => req<AgentsResponse>('/api/operator/crm/agents'),
   agentCreate: (body: CreateAgentBody) =>
     req<{ ok: boolean; id: number }>('/api/operator/crm/agents', {
