@@ -4,6 +4,7 @@
 // the operator hooks.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { crmApi } from './api';
+import type { Lead, LeadsResponse } from './api';
 
 export const crmKeys = {
   leads: (params?: { stage?: string; source?: string; q?: string }) =>
@@ -168,13 +169,28 @@ export function useAutomationSetEnabled() {
 }
 
 // AI intro-DM draft (gpt-4o) for the DM Queue.
-// DM Queue ⋮ menu — skip/delete/block a lead. Refreshes the leads lists + stats.
+// DM Queue ⋮ menu — skip/delete/block a lead. OPTIMISTIC: the lead is removed from
+// every cached leads list in onMutate so the UI re-renders instantly; rolled back
+// on error; re-synced from the server on settle.
+type LeadActionVars = { id?: number; action: 'skip' | 'delete' | 'block'; handle?: string; reason?: string };
 export function useLeadAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { id?: number; action: 'skip' | 'delete' | 'block'; handle?: string; reason?: string }) =>
-      crmApi.leadAction(body),
-    onSuccess: () => {
+    mutationFn: (body: LeadActionVars) => crmApi.leadAction(body),
+    onMutate: async (body: LeadActionVars) => {
+      await qc.cancelQueries({ queryKey: ['crm', 'leads'] });
+      const prev = qc.getQueriesData<LeadsResponse>({ queryKey: ['crm', 'leads'] });
+      // Drop the lead from every cached leads list immediately.
+      qc.setQueriesData<LeadsResponse>({ queryKey: ['crm', 'leads'] }, (old) =>
+        old ? { ...old, leads: old.leads.filter((l: Lead) => l.id !== body.id) } : old,
+      );
+      return { prev };
+    },
+    onError: (_e, _body, ctx) => {
+      // Roll back every list we touched.
+      ctx?.prev?.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
       qc.invalidateQueries({ queryKey: ['crm', 'stats'] });
     },

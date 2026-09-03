@@ -27,15 +27,11 @@ function tabMatch(tab: QueueTab, l: Lead): boolean {
 export function DmQueueView() {
   const query = useLeads();
   const leadAction = useLeadAction();
-  // Optimistic: hide rows the operator just skipped/deleted/blocked before refetch.
-  const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
-  // DM queue = leads with an IG handle, excluding ones skipped or just-removed.
+  // DM queue = leads with an IG handle, excluding skipped ones. Optimistic removal
+  // is handled by useLeadAction's cache mutation (instant re-render).
   const dmable = useMemo(
-    () =>
-      (query.data?.leads ?? []).filter(
-        (l) => !!l.instagram && (l.stage || '').toLowerCase() !== 'skipped' && !hiddenIds.has(l.id),
-      ),
-    [query.data, hiddenIds],
+    () => (query.data?.leads ?? []).filter((l) => !!l.instagram && (l.stage || '').toLowerCase() !== 'skipped'),
+    [query.data],
   );
 
   const statsQ = useCrmStats();
@@ -115,32 +111,22 @@ export function DmQueueView() {
   const advance = () => setIdx((i) => Math.min(i + 1, list.length - 1));
 
   // ⋮ menu — skip (remove from queue) / delete lead / block+denylist handle.
+  // Optimistic removal + rollback live in useLeadAction (cache mutation).
   const runLeadAction = (target: Lead, action: 'skip' | 'delete' | 'block') => {
     if (leadAction.isPending) return;
     const handle = (target.instagram || '').replace(/^@/, '').trim();
-    // Optimistically drop it from the queue immediately.
-    setHiddenIds((prev) => new Set(prev).add(target.id));
     leadAction.mutate(
       { id: target.id, action, handle: action === 'block' ? handle : undefined },
       {
-        onSuccess: (r) => {
+        onSuccess: (r) =>
           setFlash(
             action === 'skip'
               ? 'Removed from queue'
               : action === 'delete'
                 ? 'Lead deleted'
                 : `Blocked @${handle} — ${r.removed} removed, future scrapes will skip it`,
-          );
-        },
-        onError: (e) => {
-          // Roll back the optimistic hide on failure.
-          setHiddenIds((prev) => {
-            const n = new Set(prev);
-            n.delete(target.id);
-            return n;
-          });
-          setFlash(`Failed: ${e instanceof Error ? e.message : 'error'}`);
-        },
+          ),
+        onError: (e) => setFlash(`Failed: ${e instanceof Error ? e.message : 'error'}`),
       },
     );
   };
