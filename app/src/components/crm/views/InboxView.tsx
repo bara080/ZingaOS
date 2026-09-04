@@ -7,12 +7,16 @@
 // handle, or by email address). Real data from ops.ig_messages / ops.email_messages
 // (+ ops.leads); draft/show/wait on every reply.
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, Send as SendIcon, Search, Instagram, Mail, RefreshCw } from 'lucide-react';
+import { Bot, Send as SendIcon, Search, Instagram, Mail, MessageCircle, RefreshCw } from 'lucide-react';
 import {
   useIgThreads,
   useIgThread,
   useIgDraft,
   useIgSend,
+  useMessengerThreads,
+  useMessengerThread,
+  useMessengerDraft,
+  useMessengerSend,
   useEmailThreads,
   useEmailThread,
   useEmailDraft,
@@ -20,12 +24,12 @@ import {
   useEmailPoll,
   useLeads,
 } from '../hooks';
-import { leadName, type IgThread, type EmailThread, type Lead } from '../api';
+import { leadName, type IgThread, type MessengerThread, type EmailThread, type Lead } from '../api';
 import { usePager, Pager } from '../Pager';
 import { cleanEmailBody, emailPreview } from './emailClean';
 import { C } from '@/components/operator/theme';
 
-type Channel = 'instagram' | 'email';
+type Channel = 'instagram' | 'email' | 'messenger';
 
 const STAGE_COLOR: Record<string, string> = {
   scraped: C.ink3, prospect: C.ink2, new: C.ink2, contacted: C.amber,
@@ -52,6 +56,7 @@ export function InboxView() {
           {([
             { key: 'instagram', label: 'Instagram', Icon: Instagram },
             { key: 'email', label: 'Email', Icon: Mail },
+            { key: 'messenger', label: 'Messenger', Icon: MessageCircle },
           ] as const).map(({ key, label, Icon }) => {
             const on = channel === key;
             return (
@@ -72,7 +77,245 @@ export function InboxView() {
         </div>
       </div>
 
-      {channel === 'instagram' ? <IgInbox /> : <EmailInbox />}
+      {channel === 'instagram' ? <IgInbox /> : channel === 'messenger' ? <MessengerInbox /> : <EmailInbox />}
+    </div>
+  );
+}
+
+// ── Messenger channel (Facebook Page DMs · clone of IgInbox, keyed by PSID) ──
+type MsgTab = 'all' | 'unread';
+
+function msgNameOf(t: MessengerThread): string {
+  return t.sender_name?.trim() || `PSID ${t.psid.slice(0, 8)}…`;
+}
+
+function MessengerInbox() {
+  const threadsQ = useMessengerThreads(true);
+  const leadsQ = useLeads();
+  const threads = useMemo(() => threadsQ.data?.threads ?? [], [threadsQ.data]);
+
+  // Messenger threads carry a lead_id directly (best-effort name match server-
+  // side). Resolve it against the real leads list for the details panel.
+  const leadById = useMemo(() => {
+    const m = new Map<number, Lead>();
+    for (const l of leadsQ.data?.leads ?? []) m.set(l.id, l);
+    return m;
+  }, [leadsQ.data]);
+  const leadFor = (t: MessengerThread | null): Lead | null =>
+    t?.lead_id != null ? leadById.get(t.lead_id) ?? null : null;
+
+  const [tab, setTab] = useState<MsgTab>('all');
+  const [search, setSearch] = useState('');
+  const [psid, setPsid] = useState<string | null>(null);
+
+  const unreadCount = threads.filter((t) => t.last_direction === 'in').length;
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return threads.filter((t) => {
+      if (tab === 'unread' && t.last_direction !== 'in') return false;
+      return !s || msgNameOf(t).toLowerCase().includes(s) || (t.last_text || '').toLowerCase().includes(s);
+    });
+  }, [threads, tab, search]);
+
+  const pager = usePager(filtered, 12, `${tab}|${search}`);
+
+  useEffect(() => {
+    if (!psid && filtered.length) setPsid(filtered[0].psid);
+  }, [filtered, psid]);
+
+  const active = threads.find((t) => t.psid === psid) || null;
+  const activeLead = leadFor(active);
+  const threadQ = useMessengerThread(psid, true);
+  const messages = threadQ.data?.messages ?? [];
+  const draft = useMessengerDraft();
+  const send = useMessengerSend();
+  const [reply, setReply] = useState('');
+  const [flash, setFlash] = useState<string | null>(null);
+
+  const doDraft = () => {
+    if (!psid) return;
+    setFlash(null);
+    draft.mutate({ psid }, { onSuccess: (d) => setReply(d.draft), onError: (e) => setFlash(`Draft failed: ${e instanceof Error ? e.message : 'error'}`) });
+  };
+  const doSend = () => {
+    if (!psid || !reply.trim() || send.isPending) return;
+    setFlash(null);
+    send.mutate({ psid, text: reply.trim() }, { onSuccess: () => { setReply(''); setFlash('Reply sent ✓'); }, onError: (e) => setFlash(`Send failed: ${e instanceof Error ? e.message : 'error'}`) });
+  };
+
+  const TABS: { key: MsgTab; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: threads.length },
+    { key: 'unread', label: 'Unread', count: unreadCount },
+  ];
+
+  const notAuthorized = threadsQ.isError;
+
+  return (
+    <div style={{ width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }}>
+        {TABS.map((t) => {
+          const on = tab === t.key;
+          return (
+            <button key={t.key} onClick={() => { setTab(t.key); setPsid(null); }} style={{
+              fontFamily: C.sans, fontSize: 12.5, fontWeight: on ? 600 : 500, color: on ? C.teal : C.ink2,
+              background: 'transparent', border: 'none', borderBottom: `2px solid ${on ? C.teal : 'transparent'}`,
+              padding: '6px 10px', cursor: 'pointer',
+            }}>
+              {t.label} <span style={{ color: C.ink3, fontSize: 11 }}>{t.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {notAuthorized ? (
+        <div style={{ fontFamily: C.mono, fontSize: 12, color: C.amber, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, background: 'rgba(230,178,76,0.06)' }}>
+          Messenger not available.
+          <div style={{ color: C.ink3, marginTop: 6 }}>{threadsQ.error instanceof Error ? threadsQ.error.message : 'not authorized'}</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 260px', gap: 14, alignItems: 'start' }}>
+          {/* col 1: conversation list */}
+          <div style={{ ...colCard, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ position: 'relative', marginBottom: 10 }}>
+              <Search size={13} color={C.ink3} style={{ position: 'absolute', left: 9, top: 9 }} />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search conversations…" style={{ ...fieldStyle, width: '100%', paddingLeft: 28 }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 460, overflowY: 'auto' }}>
+              {threadsQ.isLoading ? (
+                <div style={{ fontFamily: C.mono, fontSize: 11, color: C.ink3, padding: 8 }}>loading…</div>
+              ) : filtered.length === 0 ? (
+                <div style={{ fontFamily: C.mono, fontSize: 11, color: C.ink3, padding: 8, lineHeight: 1.6 }}>
+                  {tab === 'all' ? 'No conversations yet. Inbound Page DMs land here.' : 'Nothing here.'}
+                </div>
+              ) : (
+                pager.slice.map((t) => {
+                  const on = t.psid === psid;
+                  const unread = t.last_direction === 'in';
+                  const lead = leadFor(t);
+                  const label = lead ? leadName(lead) : msgNameOf(t);
+                  return (
+                    <button key={t.psid} onClick={() => setPsid(t.psid)} style={{
+                      display: 'flex', gap: 9, alignItems: 'center', textAlign: 'left', padding: '9px 10px', borderRadius: 9,
+                      border: `1px solid ${on ? C.teal : 'transparent'}`, background: on ? 'rgba(47,217,201,0.08)' : 'transparent', cursor: 'pointer',
+                    }}>
+                      <div style={avatar}>{label.charAt(0).toUpperCase()}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontFamily: C.sans, fontSize: 12.5, fontWeight: 600, color: on ? C.teal : C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {label}
+                          </span>
+                          <span style={{ flex: 1 }} />
+                          <span style={{ fontFamily: C.mono, fontSize: 9, color: C.ink3 }}>{relTime(t.last_at)}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontFamily: C.mono, fontSize: 10, color: C.ink3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {t.last_text || `${t.msg_count} messages`}
+                          </span>
+                          {unread && <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.teal, flexShrink: 0 }} />}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <Pager p={pager} noun="threads" />
+          </div>
+
+          {/* col 2: chat */}
+          <div style={{ ...colCard, display: 'flex', flexDirection: 'column', minHeight: 460, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 10, borderBottom: `1px solid ${C.line}`, minWidth: 0 }}>
+              <div style={{ fontFamily: C.sans, fontSize: 13.5, fontWeight: 600, color: C.ink, whiteSpace: 'nowrap' }}>
+                {active ? (activeLead ? leadName(activeLead) : msgNameOf(active)) : 'Chat'}
+              </div>
+              {active && <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.ink3 }}>Messenger</div>}
+              <span style={{ flex: 1 }} />
+              {activeLead && (
+                <span style={{ fontFamily: C.mono, fontSize: 10, color: STAGE_COLOR[(activeLead.stage || 'scraped').toLowerCase()] ?? C.ink2, border: `1px solid ${STAGE_COLOR[(activeLead.stage || 'scraped').toLowerCase()] ?? C.line}`, borderRadius: 6, padding: '2px 8px', textTransform: 'capitalize' }}>
+                  {activeLead.stage || 'scraped'}
+                </span>
+              )}
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 320, padding: '10px 2px' }}>
+              {!psid ? (
+                <Center>Pick a conversation.</Center>
+              ) : threadQ.isLoading ? (
+                <Center>loading…</Center>
+              ) : messages.length === 0 ? (
+                <Center>no messages</Center>
+              ) : (
+                messages.map((m) => {
+                  const out = m.direction === 'out';
+                  const hasAttach = Array.isArray(m.attachments) && m.attachments.length > 0;
+                  return (
+                    <div key={m.id} style={{ alignSelf: out ? 'flex-end' : 'flex-start', maxWidth: '78%', minWidth: 0, background: out ? 'rgba(47,217,201,0.12)' : C.panel2, border: `1px solid ${out ? 'rgba(47,217,201,0.4)' : C.line}`, borderRadius: 12, padding: '8px 11px', fontFamily: C.sans, fontSize: 12.5, color: C.ink, lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                      {m.body || (hasAttach ? '[attachment]' : '')}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div style={{ marginTop: 10, borderTop: `1px solid ${C.line}`, paddingTop: 10 }}>
+              <textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Reply, or click AI reply…" disabled={!psid} style={{ ...fieldStyle, width: '100%', minHeight: 52, resize: 'vertical', marginBottom: 8 }} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={doDraft} disabled={!psid || draft.isPending} style={{ ...btn(false), flex: 1 }}>
+                  <Bot size={14} /> {draft.isPending ? 'Drafting…' : 'AI reply'}
+                </button>
+                <button onClick={doSend} disabled={!psid || !reply.trim() || send.isPending} style={{ ...btn(true), flex: 1 }}>
+                  <SendIcon size={14} /> {send.isPending ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+              {flash && <div style={{ marginTop: 8, fontFamily: C.mono, fontSize: 11, color: flash.toLowerCase().includes('fail') ? C.red : C.green }}>{flash}</div>}
+            </div>
+          </div>
+
+          {/* col 3: lead details */}
+          <div style={colCard}>
+            {!active ? (
+              <div style={{ fontFamily: C.mono, fontSize: 11, color: C.ink3 }}>—</div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 12, borderBottom: `1px solid ${C.line}` }}>
+                  <div style={{ ...avatar, width: 40, height: 40, fontSize: 15 }}>{(activeLead ? leadName(activeLead) : msgNameOf(active)).charAt(0).toUpperCase()}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: C.sans, fontSize: 13, fontWeight: 600, color: C.ink }}>{activeLead ? leadName(activeLead) : msgNameOf(active)}</div>
+                    <span style={{ fontFamily: C.mono, fontSize: 10, color: C.ink3 }}>Messenger</span>
+                  </div>
+                </div>
+
+                <Section label="About" />
+                {activeLead ? (
+                  <>
+                    <Row v={activeLead.category || 'Service provider'} />
+                    {activeLead.borough && <Row v={activeLead.borough} />}
+                    {activeLead.website && <Row v={activeLead.website} accent={C.teal} />}
+                    <Section label="Stage" />
+                    <span style={{ fontFamily: C.mono, fontSize: 11, color: STAGE_COLOR[(activeLead.stage || 'scraped').toLowerCase()] ?? C.ink2, textTransform: 'capitalize' }}>{activeLead.stage || 'scraped'}</span>
+                    {activeLead.notes && (<><Section label="Notes" /><div style={{ fontFamily: C.sans, fontSize: 11.5, color: C.ink2, lineHeight: 1.5 }}>{activeLead.notes}</div></>)}
+                    <Section label="Tags" />
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {[activeLead.category, activeLead.borough].filter(Boolean).map((t, i) => (
+                        <span key={i} style={{ fontFamily: C.mono, fontSize: 9.5, color: C.ink2, border: `1px solid ${C.line}`, borderRadius: 6, padding: '2px 7px' }}>{t}</span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontFamily: C.mono, fontSize: 10.5, color: C.ink3, lineHeight: 1.7 }}>
+                    Not in the lead DB yet.
+                    <div>psid {active.psid}</div>
+                    <div>{active.msg_count} messages</div>
+                  </div>
+                )}
+                <div style={{ fontFamily: C.mono, fontSize: 9.5, color: C.ink3, marginTop: 14, lineHeight: 1.6 }}>
+                  Replies send within Meta&apos;s 24h window via the approved path — human-reviewed, never auto-sent.
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,6 +12,8 @@ export const crmKeys = {
   stats: ['crm', 'stats'] as const,
   igThreads: ['crm', 'ig', 'threads'] as const,
   igThread: (igsid: string | null) => ['crm', 'ig', 'thread', igsid] as const,
+  messengerThreads: ['crm', 'messenger', 'threads'] as const,
+  messengerThread: (psid: string | null) => ['crm', 'messenger', 'thread', psid] as const,
   emailThreads: ['crm', 'email', 'threads'] as const,
   emailThread: (contact: string | null) => ['crm', 'email', 'thread', contact] as const,
   smsThreads: ['crm', 'sms', 'threads'] as const,
@@ -79,6 +81,42 @@ export function useIgSend() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: crmKeys.igThreads });
       qc.invalidateQueries({ queryKey: crmKeys.igThread(vars.igsid) });
+    },
+  });
+}
+
+// ── Messenger channel (Facebook Page DMs · same Meta app as IG) ─────────────
+export function useMessengerThreads(enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.messengerThreads,
+    queryFn: () => crmApi.messengerThreads(),
+    enabled,
+    retry: false,
+    refetchInterval: enabled ? 20_000 : false,
+  });
+}
+
+export function useMessengerThread(psid: string | null, enabled = true) {
+  return useQuery({
+    queryKey: crmKeys.messengerThread(psid),
+    queryFn: () => crmApi.messengerThread(psid as string),
+    enabled: enabled && !!psid,
+    retry: false,
+    refetchInterval: enabled && psid ? 15_000 : false,
+  });
+}
+
+export function useMessengerDraft() {
+  return useMutation({ mutationFn: (vars: { psid: string }) => crmApi.messengerDraft(vars.psid) });
+}
+
+export function useMessengerSend() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { psid: string; text: string }) => crmApi.messengerSend(vars),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: crmKeys.messengerThreads });
+      qc.invalidateQueries({ queryKey: crmKeys.messengerThread(vars.psid) });
     },
   });
 }

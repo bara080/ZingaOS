@@ -74,6 +74,30 @@ export type IgThreadResponse = { igsid: string; messages: IgMessage[] };
 export type IgDraftResponse = { draft: string; intent: string };
 export type IgSendResponse = { ok: boolean; messageId: string };
 
+// Messenger channel — mirrors the IG shape but keyed by the sender's PSID
+// (page-scoped id). Backed by ops.messenger_messages via operator_messenger_*
+// RPCs. Same Meta app + webhook as IG (object='page'); sends via the Page token.
+export type MessengerThread = {
+  psid: string;
+  sender_name: string | null;
+  lead_id: number | null;
+  last_text: string | null;
+  last_direction: 'in' | 'out' | null;
+  last_at: string;
+  msg_count: number;
+};
+export type MessengerThreadsResponse = { threads: MessengerThread[] };
+export type MessengerMessage = {
+  id: number;
+  direction: 'in' | 'out';
+  body: string | null;
+  attachments: unknown[] | null;
+  created_at: string;
+};
+export type MessengerThreadResponse = { psid: string; messages: MessengerMessage[] };
+export type MessengerDraftResponse = { draft: string; intent: string; source: string };
+export type MessengerSendResponse = { ok: boolean; messageId: string };
+
 // Email channel — mirrors the IG shape but keyed by the CONTACT'S email address.
 // Backed by ops.email_messages via the operator_email_* RPCs.
 export type EmailThread = {
@@ -374,6 +398,23 @@ export const crmApi = {
     }),
   igSend: (body: { igsid: string; text: string }) =>
     req<IgSendResponse>('/api/operator/ig/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  // ── Messenger (Facebook Page DMs · same Meta app as IG) ──────────────────────
+  messengerThreads: () => req<MessengerThreadsResponse>('/api/operator/messenger/threads'),
+  messengerThread: (psid: string) =>
+    req<MessengerThreadResponse>(`/api/operator/messenger/thread?psid=${encodeURIComponent(psid)}`),
+  messengerDraft: (psid: string) =>
+    req<MessengerDraftResponse>('/api/operator/messenger/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ psid }),
+    }),
+  messengerSend: (body: { psid: string; text: string }) =>
+    req<MessengerSendResponse>('/api/operator/messenger/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

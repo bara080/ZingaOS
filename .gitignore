@@ -59,3 +59,5 @@ runs/*.err
 
 # metrics history stays local (notes can hold PII); public numbers come from snapshot.json
 data/metrics/*.csv
+.vercel
+.env*
