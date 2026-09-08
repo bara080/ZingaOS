@@ -47,6 +47,42 @@ const DROP_TERMS = [
 ];
 const DROP_RE = new RegExp('\\b(' + DROP_TERMS.join('|') + ')\\b', 'i');
 
+// ── Category-relevance / junk filter (ingest gate) ──────────────────────────
+// Broad IG searches like "nail technicians NY USA" drag in brands (bmwusa),
+// media (usatoday), gov (nypd), sports (nba), adult/dating, and generic "usa*"
+// accounts. We drop those AT INGEST so junk never reaches the queue. Ported from
+// the proven lead-cleanup sweeps (zero false positives on real data).
+//
+// A lead matching SERVICE_RE (any of Zinga's 5 verticals) is ALWAYS kept, even if
+// the handle looks generic. Only when there is NO service signal do we drop leads
+// whose handle+bio matches a known junk shape. This can never drop a real provider
+// who names their trade — it only removes accounts that are clearly not providers.
+// A provider signal in any of Zinga's 5 verticals — always kept (unless adult).
+const SERVICE_RE =
+  /(barber|barbear|salon|hair|nails?|manicure|pedicure|\bspa\b|groom|\bcut|\bfade|braid|\blocs?\b|lash|\bbrows?\b|makeup|make[-\s]?up|\bwax|thread|photo|foto|videograph|studio|massage|therap|\bauto\b|detail|estetic|esthetic|\bglam|stylist|beleza|corte|shave|tattoo|\bpmu\b|microblad|facial|skincare|beaut)/i;
+// Adult/dating — dropped even when a service-ish word appears (e.g. "beautiful girls").
+const ADULT_RE =
+  /(beautiful[_.]?girls?|hot[_.]?girls?|_girls?\d|\bgirls?\b\s*\d|dating|\bsingles\b|escort|onlyfans|\bmilf\b|sugar_?(baby|daddy)|\bmodels?\b)/i;
+// Non-provider entities: brands, media, gov, sports, finance, NGOs.
+const ENTITY_RE =
+  /(\bnba\b|\bnfl\b|\bnhl\b|basketball|\bnews\b|network|magazine|\btv\b|podcast|\bgov\b|nypd|fdny|\bmayor\b|governor|senate|congress|\belection|unicef|turningpoint|numbersusa|rescue|\bdogs?\b|\bpets?\b|shelter|army\b|\bnavy\b|marines|\bmilitary\b|airforce|crypto|forex|\bnft\b|realtor|lottery|\bbmw|\baudi|toyota|honda|mercedes|\bbenz\b|samsung|verizon|walmart|costco|nasdaq|\bnyse\b|usatoday|usanetwork|\bcanon)/i;
+// Generic "usa*" handles (from broad "…USA" searches) — checked on the HANDLE only,
+// so a real US provider whose BIO says "USA" is never dropped.
+const GENERIC_USA_RE = /(^usa($|[^a-z])|^usa[_.]|[_.]usa($|[_.\d])|_usa_|theusa|visittheusa|usa\d)/i;
+
+// true → this scraped account is not a service provider; drop it at ingest.
+// Order matters: adult overrides a service keyword; a real service signal keeps the
+// lead; otherwise known non-provider shapes (entities / generic-usa handles) drop.
+export function isJunkLead(handle: string, bio: string): boolean {
+  const h = handle.toLowerCase();
+  const t = `${handle} ${bio}`.toLowerCase();
+  if (ADULT_RE.test(t)) return true;
+  if (SERVICE_RE.test(t)) return false;
+  if (ENTITY_RE.test(t)) return true;
+  if (GENERIC_USA_RE.test(h)) return true;
+  return false;
+}
+
 export type ScrapeSource = 'ig' | 'google' | 'tiktok';
 
 export function isScrapeSource(s: unknown): s is ScrapeSource {
@@ -212,6 +248,12 @@ export async function apifyItems(datasetId: string, source: ScrapeSource): Promi
       }
       const bio = str(it.biography) || str(it.signature);
       if (bio && DROP_RE.test(bio)) {
+        dropped++;
+        continue;
+      }
+      // Category-relevance gate: drop non-provider junk (brands, media, gov,
+      // sports, adult, generic "usa*") before it ever reaches the queue.
+      if (isJunkLead(uname, bio)) {
         dropped++;
         continue;
       }
