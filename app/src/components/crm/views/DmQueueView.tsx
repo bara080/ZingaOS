@@ -29,9 +29,16 @@ export function DmQueueView() {
   const leadAction = useLeadAction();
   // DM queue = leads with an IG handle, excluding skipped ones. Optimistic removal
   // is handled by useLeadAction's cache mutation (instant re-render).
+  // Locally-removed leads (⋮ actions) hide instantly, independent of the TanStack
+  // cache/refetch — the same source-of-truth pattern as sentIds below. Rolled back
+  // only if the server action fails.
+  const [removedIds, setRemovedIds] = useState<Set<number>>(new Set());
   const dmable = useMemo(
-    () => (query.data?.leads ?? []).filter((l) => !!l.instagram && (l.stage || '').toLowerCase() !== 'skipped'),
-    [query.data],
+    () =>
+      (query.data?.leads ?? []).filter(
+        (l) => !!l.instagram && (l.stage || '').toLowerCase() !== 'skipped' && !removedIds.has(l.id),
+      ),
+    [query.data, removedIds],
   );
 
   const statsQ = useCrmStats();
@@ -113,12 +120,14 @@ export function DmQueueView() {
   // ⋮ menu — skip (remove from queue) / delete lead / block+denylist handle.
   // Optimistic removal + rollback live in useLeadAction (cache mutation).
   const runLeadAction = (target: Lead, action: 'skip' | 'delete' | 'block') => {
-    if (leadAction.isPending) return;
     const handle = (target.instagram || '').replace(/^@/, '').trim();
+    // Instant hide — remove the row from the queue immediately, before the network
+    // round-trip. Reverted in onError if the server rejects.
+    setRemovedIds((prev) => new Set(prev).add(target.id));
     leadAction.mutate(
       { id: target.id, action, handle: action === 'block' ? handle : undefined },
       {
-        onSuccess: (r) =>
+        onSuccess: () =>
           setFlash(
             action === 'skip'
               ? 'Removed from queue'
@@ -126,7 +135,15 @@ export function DmQueueView() {
                 ? 'Lead deleted'
                 : `Blocked @${handle} — kept in Leads, out of queue; future scrapes will skip it`,
           ),
-        onError: (e) => setFlash(`Failed: ${e instanceof Error ? e.message : 'error'}`),
+        onError: (e) => {
+          // Roll the row back into the queue.
+          setRemovedIds((prev) => {
+            const n = new Set(prev);
+            n.delete(target.id);
+            return n;
+          });
+          setFlash(`Failed: ${e instanceof Error ? e.message : 'error'}`);
+        },
       },
     );
   };
@@ -751,7 +768,7 @@ function QueueRowMenu({
             boxShadow: '0 14px 36px rgba(0,0,0,0.5)',
           }}
         >
-          <QRowItem icon={MinusCircle} label="Remove from queue" onClick={() => fire('skip')} disabled={busy} />
+          <QRowItem icon={MinusCircle} label="Remove from queue" onClick={() => fire('skip')} />
           {confirm !== 'delete' ? (
             <QRowItem icon={Trash2} label="Delete lead" danger onClick={() => setConfirm('delete')} />
           ) : (
