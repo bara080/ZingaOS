@@ -705,15 +705,12 @@ function QueueRowMenu({
 
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
+    // Outside-click is handled by a backdrop element below (bulletproof — the old
+    // document.mousedown listener could unmount the menu before the item's click
+    // landed, silently swallowing the action). Here we only handle Escape.
     const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    const t = setTimeout(() => document.addEventListener('mousedown', close), 0);
     document.addEventListener('keydown', key);
-    return () => {
-      clearTimeout(t);
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', key);
-    };
+    return () => document.removeEventListener('keydown', key);
   }, [open]);
 
   const toggle = () => {
@@ -753,8 +750,14 @@ function QueueRowMenu({
         <MoreVertical size={14} />
       </button>
       {open && pos && (
+        <>
+          {/* Backdrop: any outside click closes the menu. The menu (zIndex 70) sits
+              above it, so item clicks land reliably. */}
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 69, background: 'transparent' }}
+          />
         <div
-          onMouseDown={(e) => e.stopPropagation()}
           style={{
             position: 'fixed',
             top: pos.top,
@@ -785,6 +788,7 @@ function QueueRowMenu({
             </div>
           )}
         </div>
+        </>
       )}
     </>
   );
