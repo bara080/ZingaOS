@@ -4,7 +4,6 @@
 // the operator hooks.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { crmApi } from './api';
-import type { Lead, LeadsResponse } from './api';
 
 export const crmKeys = {
   leads: (params?: { stage?: string; source?: string; q?: string }) =>
@@ -431,21 +430,13 @@ export function useAutomationSetEnabled() {
 type LeadActionVars = { id?: number; action: 'skip' | 'delete' | 'block'; handle?: string; reason?: string };
 export function useLeadAction() {
   const qc = useQueryClient();
+  // NOTE: no `onMutate` cache mutation here. A throwing onMutate (e.g. old.leads
+  // undefined on some cached ['crm','leads'] entry) aborts the mutation in TanStack
+  // v5 BEFORE mutationFn runs — so the request silently never fires. The instant
+  // hide is handled locally by the DM Queue's `removedIds` set; here we just send
+  // the request and re-sync on settle.
   return useMutation({
     mutationFn: (body: LeadActionVars) => crmApi.leadAction(body),
-    onMutate: async (body: LeadActionVars) => {
-      await qc.cancelQueries({ queryKey: ['crm', 'leads'] });
-      const prev = qc.getQueriesData<LeadsResponse>({ queryKey: ['crm', 'leads'] });
-      // Drop the lead from every cached leads list immediately.
-      qc.setQueriesData<LeadsResponse>({ queryKey: ['crm', 'leads'] }, (old) =>
-        old ? { ...old, leads: old.leads.filter((l: Lead) => l.id !== body.id) } : old,
-      );
-      return { prev };
-    },
-    onError: (_e, _body, ctx) => {
-      // Roll back every list we touched.
-      ctx?.prev?.forEach(([key, data]) => qc.setQueryData(key, data));
-    },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
       qc.invalidateQueries({ queryKey: ['crm', 'stats'] });
