@@ -37,13 +37,13 @@ const FEATURES = [
 
 export function Features() {
   return (
-    <section className="bg-[#0B0D11]">
+    <section className="bg-canvas">
       <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight text-[#E7EBF1] sm:text-4xl">
+          <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             Everything the front desk does — automated, and supervised.
           </h2>
-          <p className="mt-4 text-lg text-[#98A1AE]">
+          <p className="mt-4 text-lg text-ink2">
             One agent that watches your channels, drafts the replies, and keeps your pipeline
             moving. You stay the final word on every send.
           </p>
@@ -53,16 +53,16 @@ export function Features() {
           {FEATURES.map(({ icon: Icon, title, body }) => (
             <Card
               key={title}
-              className="group border-[#232833] bg-[#12151C] transition-colors hover:border-[#2FD9C9]/40"
+              className="group border-line bg-panel transition-colors hover:border-brand/40"
             >
               <CardHeader>
-                <div className="flex size-10 items-center justify-center rounded-lg bg-[#171B23] ring-1 ring-[#232833] transition-colors group-hover:ring-[#2FD9C9]/40">
-                  <Icon className="size-5 text-[#2FD9C9]" />
+                <div className="flex size-10 items-center justify-center rounded-lg bg-panel2 ring-1 ring-line transition-colors group-hover:ring-brand/40">
+                  <Icon className="size-5 text-brand" />
                 </div>
-                <CardTitle className="mt-3 text-[#E7EBF1]">{title}</CardTitle>
+                <CardTitle className="mt-3 text-ink">{title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm leading-relaxed text-[#98A1AE]">{body}</p>
+                <p className="text-sm leading-relaxed text-ink2">{body}</p>
               </CardContent>
             </Card>
           ))}

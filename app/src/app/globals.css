@@ -1,8 +1,36 @@
+/* ============================================================================
+   globals.css — Zinga app global styles (Tailwind v4, CSS-first config)
+
+   SECTIONS
+     1. Imports & variants
+     2. shadcn token → utility mapping   (@theme inline)
+     3. Zinga brand palette tokens        (@theme)     ← reusable design tokens
+     4. shadcn design tokens — light      (:root)
+     5. shadcn design tokens — dark        (.dark)
+     6. Base layer
+     7. Reusable utility classes
+     8. Marketing decorative effects
+
+   TWO token systems live here, on purpose:
+     • shadcn (semantic, theme-aware): --background/--foreground/--primary/… flip
+       between light (:root) and dark (.dark). Drives the admin dashboard + shadcn
+       components (Card/Button/Input). Primary accent = brand BLUE (#1C6FC7).
+     • Zinga brand palette (§3): a fixed dark "teal" palette (bg-base, bg-panel,
+       text-ink, text-brand, …) used by the always-dark marketing + console
+       surfaces. Single source of truth — use these instead of hardcoded [#hex].
+   ============================================================================ */
+
+/* ── 1. Imports & variants ────────────────────────────────────────────────── */
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Enable `dark:` variants under a `.dark` ancestor (next-themes toggles `.dark`). */
 @custom-variant dark (&:is(.dark *));
 
+/* ── 2. shadcn token → utility mapping ────────────────────────────────────────
+   Maps the shadcn CSS variables (defined in §4/§5) to Tailwind color/radius
+   utilities (bg-background, text-foreground, rounded-lg, …). `inline` = resolved
+   at build; the underlying vars still cascade light/dark at runtime. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -43,10 +71,48 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ── 3. Zinga brand palette tokens ────────────────────────────────────────────
+   The always-dark "teal" palette (mirrors operator/theme.ts `C`). Each token
+   generates the matching Tailwind utilities, so components read like English
+   instead of hex soup:
+
+     --color-canvas → bg-canvas          near-black app background  (#0B0D11)
+                       (named "canvas", NOT "base" — text-base is a Tailwind
+                        font-size utility and would collide)
+     --color-panel  → bg-panel           panel surface             (#12151C)
+     --color-panel2 → bg-panel2          raised panel              (#171B23)
+     --color-line   → border-line        borders / dividers        (#232833)
+     --color-ink    → text-ink           primary text              (#E7EBF1)
+     --color-ink2   → text-ink2          secondary text            (#98A1AE)
+     --color-ink3   → text-ink3          tertiary / muted text     (#5E6672)
+     --color-brand  → text-brand/bg-brand  signature teal accent   (#2FD9C9)
+     --color-ok     → text-ok            status: success           (#4FD08A)
+     --color-warn   → text-warn          status: warning           (#E6B24C)
+     --color-danger → text-danger        status: error             (#E0655A)
+
+   Opacity modifiers work too (bg-base/80, bg-brand/90). Names are namespaced so
+   they never collide with shadcn's --color-accent / --color-primary above. */
+@theme {
+  --color-canvas: #0b0d11;
+  --color-panel: #12151c;
+  --color-panel2: #171b23;
+  --color-line: #232833;
+  --color-ink: #e7ebf1;
+  --color-ink2: #98a1ae;
+  --color-ink3: #5e6672;
+  --color-brand: #2fd9c9;
+  --color-brand-ink: #06231f; /* text ON a brand button (dark teal-black) → text-brand-ink */
+  --color-brand-hi: #5fe6d9; /* brand hover / highlight (lighter teal)   → bg-brand-hi     */
+  --color-ok: #4fd08a;
+  --color-warn: #e6b24c;
+  --color-danger: #e0655a;
+}
+
+/* ── 4. shadcn design tokens — LIGHT (default) ────────────────────────────── */
 :root {
   --radius: 0.625rem;
 
-  /* Base surfaces (slate-tinted light) */
+  /* Base surfaces (white) */
   --background: oklch(1 0 0);
   --card: oklch(1 0 0);
   --popover: oklch(1 0 0);
@@ -56,17 +122,15 @@
   --card-foreground: oklch(0.147 0.01 255);
   --popover-foreground: oklch(0.147 0.01 255);
 
-  /* Primary (brand blue) */
-  --primary: oklch(0.55 0.18 255); /* #1C6FC7 */
+  /* Primary (brand blue #1C6FC7) */
+  --primary: oklch(0.55 0.18 255);
   --primary-foreground: oklch(0.985 0.002 255);
 
-  /* Secondary / muted */
+  /* Secondary / muted / accent (light slate) */
   --secondary: oklch(0.97 0.002 255);
   --secondary-foreground: oklch(0.216 0.01 255);
-
   --muted: oklch(0.97 0.002 255);
   --muted-foreground: oklch(0.553 0.015 255);
-
   --accent: oklch(0.97 0.002 255);
   --accent-foreground: oklch(0.216 0.01 255);
 
@@ -76,7 +140,7 @@
   --input: oklch(0.923 0.005 255);
   --ring: oklch(0.709 0.02 255);
 
-  /* Charts untouched */
+  /* Charts */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -94,6 +158,8 @@
   --sidebar-ring: oklch(0.709 0.02 255);
 }
 
+/* ── 5. shadcn design tokens — DARK (.dark) ───────────────────────────────────
+   Applied under `.dark` (next-themes, or the marketing/login dark shell). */
 .dark {
   /* Base surfaces → slate */
   --background: oklch(0.147 0.01 255); /* slate-950 */
@@ -107,36 +173,32 @@
   --popover-foreground: oklch(0.985 0.002 255);
   --sidebar-foreground: oklch(0.985 0.002 255);
 
-  /* Primary (brand blue) */
-  --primary: oklch(0.55 0.18 255); /* #1C6FC7 */
+  /* Primary (brand blue #1C6FC7) */
+  --primary: oklch(0.55 0.18 255);
   --primary-foreground: oklch(0.216 0.015 255);
 
-  /* Muted / accent */
+  /* Secondary / muted / accent (dark slate) */
   --secondary: oklch(0.268 0.012 255); /* slate-800 */
   --secondary-foreground: oklch(0.985 0.002 255);
-
   --muted: oklch(0.268 0.012 255);
   --muted-foreground: oklch(0.709 0.015 255);
-
   --accent: oklch(0.268 0.012 255);
   --accent-foreground: oklch(0.985 0.002 255);
 
-  /* Destructive unchanged */
+  /* Utility */
   --destructive: oklch(0.704 0.191 22.216);
-
-  /* Borders / inputs */
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.553 0.02 255);
 
-  /* Charts (already slate/blue — keep as-is) */
+  /* Charts */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
 
-  /* Sidebar accents */
+  /* Sidebar */
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0.002 255);
   --sidebar-accent: oklch(0.268 0.012 255);
@@ -145,15 +207,21 @@
   --sidebar-ring: oklch(0.553 0.02 255);
 }
 
+/* ── 6. Base layer ────────────────────────────────────────────────────────── */
 @layer base {
+  /* Default every element's border + focus ring to the theme tokens. */
   * {
     @apply border-border outline-ring/50;
   }
+  /* Page background/text follow the active (light/dark) theme. */
   body {
     @apply bg-background text-foreground;
   }
 }
 
+/* ── 7. Reusable utility classes ──────────────────────────────────────────────
+   `.table-row-hover`    — subtle hover highlight for data-table rows (dashboard).
+   `.shadow-brand-glow`  — soft teal glow under primary (brand) buttons/cards. */
 .table-row-hover {
   background-color: var(--card);
   transition: background-color 0.2s;
@@ -162,10 +230,17 @@
   background-color: var(--muted);
 }
 
-/* ── Marketing landing (Zinga AI) background effects ────────────────────────
-   A faint grid + a slowly-breathing radial teal glow behind the hero. Purely
-   decorative; the underlying content is fully readable without them. Motion is
-   disabled for visitors who prefer reduced motion. */
+.shadow-brand-glow {
+  box-shadow: 0 0 24px -4px rgba(47, 217, 201, 0.6); /* --color-brand at 60% */
+}
+
+/* ── 8. Marketing decorative effects ──────────────────────────────────────────
+   Background flourishes behind the Zinga AI landing hero. Purely decorative —
+   content is fully readable without them. Motion is disabled under
+   prefers-reduced-motion. Colors use the brand palette (§3) as raw rgba so they
+   work on older engines: rgba(35,40,51)=--color-line, rgba(47,217,201)=--color-brand. */
+
+/* `.marketing-grid` — faint grid, masked to fade toward the top. */
 .marketing-grid {
   background-image:
     linear-gradient(to right, rgba(35, 40, 51, 0.6) 1px, transparent 1px),
@@ -175,6 +250,7 @@
   mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
 }
 
+/* `.marketing-glow` — slowly-breathing radial teal glow behind the hero. */
 .marketing-glow {
   background: radial-gradient(
     circle at center,

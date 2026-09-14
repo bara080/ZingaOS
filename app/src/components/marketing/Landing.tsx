@@ -14,7 +14,7 @@ import { Footer } from './Footer';
 // `system`.
 export function Landing() {
   return (
-    <div className="dark min-h-screen bg-[#0B0D11] text-[#E7EBF1] antialiased">
+    <div className="dark min-h-screen bg-canvas text-ink antialiased">
       <Nav />
       <main>
         <Hero />

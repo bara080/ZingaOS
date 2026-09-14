@@ -101,7 +101,7 @@ export function RequestAccessDialog({
           size={size}
           className={cn(
             isPrimary &&
-              'bg-[#2FD9C9] text-[#06231F] font-semibold hover:bg-[#5FE6D9] shadow-[0_0_24px_-4px_rgba(47,217,201,0.6)]',
+              'bg-brand text-brand-ink font-semibold hover:bg-brand-hi shadow-brand-glow',
             className,
           )}
         >
@@ -109,21 +109,21 @@ export function RequestAccessDialog({
           {withArrow && <ArrowRight className="size-4" />}
         </Button>
       </DialogTrigger>
-      <DialogContent className="border-[#232833] bg-[#12151C] text-[#E7EBF1] sm:max-w-md">
+      <DialogContent className="border-line bg-panel text-ink sm:max-w-md">
         {submitted ? (
           <div className="flex flex-col items-center gap-4 py-6 text-center">
-            <div className="flex size-14 items-center justify-center rounded-full bg-[#2FD9C9]/10 ring-1 ring-[#2FD9C9]/30">
-              <CheckCircle2 className="size-7 text-[#2FD9C9]" />
+            <div className="flex size-14 items-center justify-center rounded-full bg-brand/10 ring-1 ring-brand/30">
+              <CheckCircle2 className="size-7 text-brand" />
             </div>
             <DialogHeader className="items-center">
-              <DialogTitle className="text-[#E7EBF1]">You&apos;re on the list</DialogTitle>
-              <DialogDescription className="text-[#98A1AE]">
+              <DialogTitle className="text-ink">You&apos;re on the list</DialogTitle>
+              <DialogDescription className="text-ink2">
                 Thanks for your interest in Zinga AI. We&apos;ll reach out when a spot opens up.
               </DialogDescription>
             </DialogHeader>
             <Button
               variant="outline"
-              className="mt-2 border-[#232833] bg-transparent text-[#E7EBF1] hover:bg-[#171B23] hover:text-[#E7EBF1]"
+              className="mt-2 border-line bg-transparent text-ink hover:bg-panel2 hover:text-ink"
               onClick={() => handleOpenChange(false)}
             >
               Done
@@ -132,16 +132,16 @@ export function RequestAccessDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle className="text-[#E7EBF1]">Request access</DialogTitle>
-              <DialogDescription className="text-[#98A1AE]">
+              <DialogTitle className="text-ink">Request access</DialogTitle>
+              <DialogDescription className="text-ink2">
                 Zinga AI is invite-only while we onboard providers. Tell us where to reach you.
               </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSubmit(onSubmit)} className="mt-2 flex flex-col gap-4" noValidate>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="wl-email" className="text-[#98A1AE]">
-                  Email <span className="text-[#2FD9C9]">*</span>
+                <Label htmlFor="wl-email" className="text-ink2">
+                  Email <span className="text-brand">*</span>
                 </Label>
                 <Input
                   id="wl-email"
@@ -149,38 +149,38 @@ export function RequestAccessDialog({
                   autoComplete="email"
                   placeholder="you@business.com"
                   aria-invalid={!!errors.email}
-                  className="border-[#232833] bg-[#0B0D11] text-[#E7EBF1] placeholder:text-[#5E6672] focus-visible:border-[#2FD9C9] focus-visible:ring-[#2FD9C9]/30"
+                  className="border-line bg-canvas text-ink placeholder:text-ink3 focus-visible:border-brand focus-visible:ring-brand/30"
                   {...register('email')}
                 />
                 {errors.email && (
-                  <p className="text-xs text-[#E0655A]">{errors.email.message}</p>
+                  <p className="text-xs text-danger">{errors.email.message}</p>
                 )}
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="wl-name" className="text-[#98A1AE]">
-                  Name <span className="text-[#5E6672]">(optional)</span>
+                <Label htmlFor="wl-name" className="text-ink2">
+                  Name <span className="text-ink3">(optional)</span>
                 </Label>
                 <Input
                   id="wl-name"
                   type="text"
                   autoComplete="name"
                   placeholder="Your name"
-                  className="border-[#232833] bg-[#0B0D11] text-[#E7EBF1] placeholder:text-[#5E6672] focus-visible:border-[#2FD9C9] focus-visible:ring-[#2FD9C9]/30"
+                  className="border-line bg-canvas text-ink placeholder:text-ink3 focus-visible:border-brand focus-visible:ring-brand/30"
                   {...register('name')}
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="wl-company" className="text-[#98A1AE]">
-                  Business <span className="text-[#5E6672]">(optional)</span>
+                <Label htmlFor="wl-company" className="text-ink2">
+                  Business <span className="text-ink3">(optional)</span>
                 </Label>
                 <Input
                   id="wl-company"
                   type="text"
                   autoComplete="organization"
                   placeholder="Your business or studio"
-                  className="border-[#232833] bg-[#0B0D11] text-[#E7EBF1] placeholder:text-[#5E6672] focus-visible:border-[#2FD9C9] focus-visible:ring-[#2FD9C9]/30"
+                  className="border-line bg-canvas text-ink placeholder:text-ink3 focus-visible:border-brand focus-visible:ring-brand/30"
                   {...register('company')}
                 />
               </div>
@@ -197,12 +197,12 @@ export function RequestAccessDialog({
                 />
               </div>
 
-              {serverError && <p className="text-sm text-[#E0655A]">{serverError}</p>}
+              {serverError && <p className="text-sm text-danger">{serverError}</p>}
 
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-1 w-full bg-[#2FD9C9] font-semibold text-[#06231F] hover:bg-[#5FE6D9] shadow-[0_0_24px_-4px_rgba(47,217,201,0.6)]"
+                className="mt-1 w-full bg-brand font-semibold text-brand-ink hover:bg-brand-hi shadow-brand-glow"
               >
                 {isSubmitting ? (
                   <>
@@ -214,7 +214,7 @@ export function RequestAccessDialog({
                 )}
               </Button>
 
-              <p className="text-center text-xs text-[#5E6672]">
+              <p className="text-center text-xs text-ink3">
                 We&apos;ll only use your email to follow up about access.
               </p>
             </form>

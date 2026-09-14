@@ -20,17 +20,17 @@ const POINTS = [
 
 export function Compliance() {
   return (
-    <section id="compliance" className="border-t border-[#232833] bg-[#0B0D11]">
+    <section id="compliance" className="border-t border-line bg-canvas">
       <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:items-center lg:gap-16">
           <div>
-            <div className="flex size-12 items-center justify-center rounded-xl bg-[#2FD9C9]/10 ring-1 ring-[#2FD9C9]/30">
-              <ShieldCheck className="size-6 text-[#2FD9C9]" />
+            <div className="flex size-12 items-center justify-center rounded-xl bg-brand/10 ring-1 ring-brand/30">
+              <ShieldCheck className="size-6 text-brand" />
             </div>
-            <h2 className="mt-6 text-3xl font-semibold tracking-tight text-[#E7EBF1] sm:text-4xl">
+            <h2 className="mt-6 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
               Won&apos;t get you banned. Consent-first. You approve everything.
             </h2>
-            <p className="mt-4 text-lg text-[#98A1AE]">
+            <p className="mt-4 text-lg text-ink2">
               Automation only helps if it keeps your accounts — and your reputation — intact.
               That&apos;s the whole point of keeping you in the loop.
             </p>
@@ -40,14 +40,14 @@ export function Compliance() {
             {POINTS.map(({ icon: Icon, title, body }) => (
               <div
                 key={title}
-                className="flex gap-4 rounded-xl border border-[#232833] bg-[#12151C] p-5"
+                className="flex gap-4 rounded-xl border border-line bg-panel p-5"
               >
-                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#171B23] ring-1 ring-[#232833]">
-                  <Icon className="size-4 text-[#2FD9C9]" />
+                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-panel2 ring-1 ring-line">
+                  <Icon className="size-4 text-brand" />
                 </div>
                 <div>
-                  <h3 className="text-base font-medium text-[#E7EBF1]">{title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-[#98A1AE]">{body}</p>
+                  <h3 className="text-base font-medium text-ink">{title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-ink2">{body}</p>
                 </div>
               </div>
             ))}

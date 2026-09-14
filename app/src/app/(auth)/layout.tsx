@@ -16,7 +16,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   if (user) redirect('/console');
 
   return (
-    <div className="dark min-h-dvh flex flex-col bg-[#0B0D11] text-[#E7EBF1]">
+    <div className="dark min-h-dvh flex flex-col bg-canvas text-ink">
       <Nav minimal />
       <main className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full text-center">

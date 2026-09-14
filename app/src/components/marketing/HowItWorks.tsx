@@ -29,16 +29,16 @@ const STEPS = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="border-t border-[#232833] bg-[#0B0D11]">
+    <section id="how-it-works" className="border-t border-line bg-canvas">
       <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-[#2FD9C9]">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand">
             The agent loop
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#E7EBF1] sm:text-4xl">
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             Perceive. Propose. Approve. Act.
           </h2>
-          <p className="mt-4 text-lg text-[#98A1AE]">
+          <p className="mt-4 text-lg text-ink2">
             An agent that does the work but never the deciding. Every step is visible, and the
             send is always yours.
           </p>
@@ -51,19 +51,19 @@ export function HowItWorks() {
               {i < STEPS.length - 1 && (
                 <span
                   aria-hidden
-                  className="absolute left-11 top-5 hidden h-px w-[calc(100%-1.5rem)] bg-gradient-to-r from-[#2FD9C9]/40 to-transparent md:block"
+                  className="absolute left-11 top-5 hidden h-px w-[calc(100%-1.5rem)] bg-gradient-to-r from-brand/40 to-transparent md:block"
                 />
               )}
               <div className="flex items-center gap-3">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#12151C] ring-1 ring-[#232833]">
-                  <Icon className="size-5 text-[#2FD9C9]" />
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-panel ring-1 ring-line">
+                  <Icon className="size-5 text-brand" />
                 </div>
-                <span className="font-mono text-xs uppercase tracking-wider text-[#5E6672]">
+                <span className="font-mono text-xs uppercase tracking-wider text-ink3">
                   {String(i + 1).padStart(2, '0')} · {kicker}
                 </span>
               </div>
-              <h3 className="mt-4 text-lg font-medium text-[#E7EBF1]">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#98A1AE]">{body}</p>
+              <h3 className="mt-4 text-lg font-medium text-ink">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink2">{body}</p>
             </li>
           ))}
         </ol>

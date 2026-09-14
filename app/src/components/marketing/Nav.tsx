@@ -21,10 +21,10 @@ function Wordmark() {
     <Link href="/" className="flex items-center gap-2.5" aria-label="Zinga AI home">
       <span
         aria-hidden
-        className="size-[7px] rounded-full bg-[#2FD9C9]"
-        style={{ boxShadow: '0 0 10px #2FD9C9' }}
+        className="size-[7px] rounded-full bg-brand"
+        style={{ boxShadow: '0 0 10px var(--color-brand)' }}
       />
-      <span className="font-mono text-[13px] uppercase tracking-[0.16em] text-[#E7EBF1]">
+      <span className="font-mono text-[13px] uppercase tracking-[0.16em] text-ink">
         Zinga AI
       </span>
     </Link>
@@ -46,7 +46,7 @@ export function Nav({ minimal = false }: { minimal?: boolean } = {}) {
       className={cn(
         'sticky top-0 z-50 w-full border-b transition-colors duration-300',
         scrolled
-          ? 'border-[#232833] bg-[#0B0D11]/80 backdrop-blur-md'
+          ? 'border-line bg-canvas/80 backdrop-blur-md'
           : 'border-transparent bg-transparent',
       )}
     >
@@ -59,7 +59,7 @@ export function Nav({ minimal = false }: { minimal?: boolean } = {}) {
               <a
                 key={l.href}
                 href={l.href}
-                className="rounded-md px-3 py-2 text-sm text-[#98A1AE] transition-colors hover:text-[#E7EBF1]"
+                className="rounded-md px-3 py-2 text-sm text-ink2 transition-colors hover:text-ink"
               >
                 {l.label}
               </a>
@@ -72,7 +72,7 @@ export function Nav({ minimal = false }: { minimal?: boolean } = {}) {
             <Button
               asChild
               variant="ghost"
-              className="text-[#98A1AE] hover:bg-[#171B23] hover:text-[#E7EBF1]"
+              className="text-ink2 hover:bg-panel2 hover:text-ink"
             >
               <Link href="/login">Sign in</Link>
             </Button>
