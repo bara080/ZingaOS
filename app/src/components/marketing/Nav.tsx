@@ -31,7 +31,7 @@ function Wordmark() {
   );
 }
 
-export function Nav() {
+export function Nav({ minimal = false }: { minimal?: boolean } = {}) {
   const [scrolled, setScrolled] = React.useState(false);
 
   React.useEffect(() => {
@@ -53,26 +53,30 @@ export function Nav() {
       <nav className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-5 sm:px-8">
         <Wordmark />
 
-        <div className="hidden flex-1 items-center justify-center gap-1 md:flex">
-          {NAV_LINKS.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="rounded-md px-3 py-2 text-sm text-[#98A1AE] transition-colors hover:text-[#E7EBF1]"
-            >
-              {l.label}
-            </a>
-          ))}
-        </div>
+        {!minimal && (
+          <div className="hidden flex-1 items-center justify-center gap-1 md:flex">
+            {NAV_LINKS.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                className="rounded-md px-3 py-2 text-sm text-[#98A1AE] transition-colors hover:text-[#E7EBF1]"
+              >
+                {l.label}
+              </a>
+            ))}
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-2 md:ml-0">
-          <Button
-            asChild
-            variant="ghost"
-            className="text-[#98A1AE] hover:bg-[#171B23] hover:text-[#E7EBF1]"
-          >
-            <Link href="/login">Sign in</Link>
-          </Button>
+          {!minimal && (
+            <Button
+              asChild
+              variant="ghost"
+              className="text-[#98A1AE] hover:bg-[#171B23] hover:text-[#E7EBF1]"
+            >
+              <Link href="/login">Sign in</Link>
+            </Button>
+          )}
           <RequestAccessDialog label="Request access" size="default" />
         </div>
       </nav>

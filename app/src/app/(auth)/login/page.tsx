@@ -76,7 +76,7 @@ export default function LoginPage() {
 
   return (
     <div className="w-full flex items-center justify-center p-6">
-      <Card className="w-full max-w-lg">
+      <Card className="w-full max-w-lg bg-[#12151C] border-[#232833]">
         <CardHeader>
           <CardTitle className="text-2xl font-bold mb-2">Login</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>
@@ -147,7 +147,11 @@ export default function LoginPage() {
 
               {err && <p className="text-sm text-red-600">{err}</p>}
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full bg-[#2FD9C9] font-medium text-[#0B0D11] hover:bg-[#2FD9C9]/90"
+                disabled={loading}
+              >
                 {loading ? 'Signing in…' : 'Sign in'}
               </Button>
             </form>
