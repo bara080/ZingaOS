@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/supabase/admin';
+import { isSameOrigin } from '@/lib/security/origin';
 
 // POST /api/waitlist  { email, name?, company?, note?, website? }
 //
@@ -21,6 +22,10 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   let raw: unknown;
   try {
     raw = await req.json();
@@ -41,9 +46,28 @@ export async function POST(req: Request) {
   }
 
   const userAgent = req.headers.get('user-agent') ?? '';
+  const xff = req.headers.get('x-forwarded-for') ?? '';
+  const ip = xff.split(',')[0].trim() || req.headers.get('x-real-ip') || 'unknown';
+  const rlKey = `wl|${ip}`;
 
   try {
     const admin = createServiceClient();
+
+    // Throttle: cap submissions per IP/hour. Over the cap → pretend success and
+    // insert nothing (don't tip off abusers). Fail-open if the limiter errors.
+    try {
+      const { data: recent } = await admin.rpc('auth_recent_count', {
+        p_kind: 'waitlist',
+        p_key: rlKey,
+        p_window_secs: 3600,
+      });
+      if (typeof recent === 'number' && recent >= 15) {
+        return NextResponse.json({ ok: true });
+      }
+    } catch {
+      /* limiter unavailable → allow */
+    }
+
     await admin.rpc('waitlist_add', {
       p_email: email,
       p_name: name ?? null,
@@ -52,6 +76,20 @@ export async function POST(req: Request) {
       p_source: 'landing',
       p_user_agent: userAgent,
     });
+
+    // Record for the throttle counter (best-effort).
+    try {
+      await admin.rpc('auth_log_event', {
+        p_kind: 'waitlist',
+        p_key: rlKey,
+        p_email: email,
+        p_ip: ip,
+        p_ua: userAgent,
+        p_ok: true,
+      });
+    } catch {
+      /* ignore */
+    }
 
     // Best-effort audit — never let a logging failure affect the response.
     try {

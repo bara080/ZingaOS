@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { readSession } from '@/lib/auth/session/session';
 import { createClient } from '@/lib/supabase/server';
+import { isSameOrigin } from '@/lib/security/origin';
 
 export async function PATCH(req: Request) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   const session = await readSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -10,27 +14,25 @@ export async function PATCH(req: Request) {
 
   const { currentPassword, newPassword } = await req.json();
 
-  if (!newPassword) {
-    return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+  // Step-up re-auth is REQUIRED: the current password must always be supplied and
+  // verified before a change (previously it was skipped when the client omitted it).
+  if (!currentPassword || !newPassword) {
+    return NextResponse.json({ error: 'Current and new password are required' }, { status: 400 });
   }
 
-  if (newPassword.length < 8) {
-    return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+  if (typeof newPassword !== 'string' || newPassword.length < 12) {
+    return NextResponse.json({ error: 'New password must be at least 12 characters' }, { status: 400 });
   }
 
   const supabase = await createClient();
 
-  // Re-auth step: Supabase does not require the current password to update it,
-  // but we keep the old behavior of verifying it by re-signing in. This also
-  // rejects the change if the current password is wrong.
-  if (currentPassword) {
-    const { error: reauthError } = await supabase.auth.signInWithPassword({
-      email: session.email,
-      password: currentPassword,
-    });
-    if (reauthError) {
-      return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
-    }
+  // Verify the current password by re-signing in; rejects the change if it's wrong.
+  const { error: reauthError } = await supabase.auth.signInWithPassword({
+    email: session.email,
+    password: currentPassword,
+  });
+  if (reauthError) {
+    return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
   }
 
   const { error } = await supabase.auth.updateUser({ password: newPassword });

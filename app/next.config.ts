@@ -6,6 +6,26 @@ const nextConfig: NextConfig = {
   // `/console`) rewrite to the console's index.html so the trailing-slash
   // landing serves the app. Auth is enforced first by middleware
   // (matcher includes `/console/:path*`); rewrites run after middleware.
+  // Baseline security headers on every response. These are the "safe" set that
+  // won't break the app. A full script/style CSP (with per-request nonce) is a
+  // deliberate follow-up (see authSecurity.md P0.2) — here we ship HSTS, anti-
+  // clickjacking (frame-ancestors + X-Frame-Options), MIME-sniff protection,
+  // Referrer-Policy and Permissions-Policy.
+  async headers() {
+    const securityHeaders = [
+      { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+      { key: 'X-Frame-Options', value: 'DENY' },
+      { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
+      },
+      { key: 'X-DNS-Prefetch-Control', value: 'off' },
+    ];
+    return [{ source: '/:path*', headers: securityHeaders }];
+  },
   async redirects() {
     return [
       // The static operator console was replaced by the React /operator route.

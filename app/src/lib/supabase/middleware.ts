@@ -8,6 +8,7 @@ import {
   SEEN_COOKIE,
   START_COOKIE,
 } from '@/lib/auth/session/policy';
+import { signStamp, verifyStamp } from '@/lib/auth/session/signing';
 
 // Build a redirect to /login and hard-expire the session: clear every Supabase
 // auth cookie (sb-*) plus our activity cookies. Used when an idle/absolute
@@ -64,16 +65,23 @@ export async function updateSession(request: NextRequest) {
   // Session lifetime enforcement (idle + absolute). Supabase would otherwise
   // keep the session alive forever by rotating the refresh token.
   const now = Date.now();
-  const seen = Number(request.cookies.get(SEEN_COOKIE)?.value) || 0;
-  const start = Number(request.cookies.get(START_COOKIE)?.value) || 0;
+  // Verify signed stamps (tamper-evident). A forged/plain value → null.
+  const seen = await verifyStamp(request.cookies.get(SEEN_COOKIE)?.value);
+  const start = await verifyStamp(request.cookies.get(START_COOKIE)?.value);
 
-  if (seen && now - seen > IDLE_TIMEOUT_MS) {
-    await supabase.auth.signOut();
-    return expireAndRedirect(request, 'timeout');
-  }
-  if (start && now - start > ABSOLUTE_TIMEOUT_MS) {
-    await supabase.auth.signOut();
-    return expireAndRedirect(request, 'expired');
+  // Fail-CLOSED idle enforcement. Once a session has a valid START, a missing or
+  // tampered SEEN is treated as an evasion attempt (previously it silently SKIPPED
+  // the idle check). Only a brand-new session (no valid START yet — first request
+  // after login, or an existing plain-cookie session being migrated) bootstraps.
+  if (start !== null) {
+    if (now - start > ABSOLUTE_TIMEOUT_MS) {
+      await supabase.auth.signOut();
+      return expireAndRedirect(request, 'expired');
+    }
+    if (seen === null || now - seen > IDLE_TIMEOUT_MS) {
+      await supabase.auth.signOut();
+      return expireAndRedirect(request, 'timeout');
+    }
   }
 
   // Role is the admin-controlled app_metadata claim (never user_metadata).
@@ -89,8 +97,8 @@ export async function updateSession(request: NextRequest) {
   // them; sameSite lax; secure in production.
   const secure = process.env.NODE_ENV === 'production';
   const cookieOpts = { httpOnly: true, sameSite: 'lax' as const, secure, path: '/' };
-  supabaseResponse.cookies.set(SEEN_COOKIE, String(now), cookieOpts);
-  if (!start) supabaseResponse.cookies.set(START_COOKIE, String(now), cookieOpts);
+  supabaseResponse.cookies.set(SEEN_COOKIE, await signStamp(now), cookieOpts);
+  if (start === null) supabaseResponse.cookies.set(START_COOKIE, await signStamp(now), cookieOpts);
 
   return supabaseResponse;
 }
