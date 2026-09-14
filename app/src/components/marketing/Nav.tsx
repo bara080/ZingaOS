@@ -67,7 +67,7 @@ export function Nav({ minimal = false }: { minimal?: boolean } = {}) {
           </div>
         )}
 
-        <div className="ml-auto flex items-center gap-2 md:ml-0">
+        <div className="ml-auto flex items-center gap-2">
           {!minimal && (
             <Button
               asChild
